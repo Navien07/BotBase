@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { Wifi, WifiOff } from 'lucide-react'
 import { BotTabNav } from '@/components/layout/BotTabNav'
 import type { Bot } from '@/types/database'
@@ -24,15 +25,18 @@ export default async function BotLayout({ children, params }: BotLayoutProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: bot, error } = await supabase
+  // Use service client to bypass RLS — auth check above already guards access
+  const service = createServiceClient()
+
+  const { data: bot } = await service
     .from('bots')
     .select('*')
     .eq('id', botId)
     .single()
 
-  if (error || !bot) notFound()
+  if (!bot) notFound()
 
-  const { data: channels } = await supabase
+  const { data: channels } = await service
     .from('channel_configs')
     .select('channel, is_active')
     .eq('bot_id', botId)

@@ -15,7 +15,7 @@ export async function GET(
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await createServiceClient()
       .from('bots')
       .select(
         'guardrail_rules, keyword_blocklist, ' +

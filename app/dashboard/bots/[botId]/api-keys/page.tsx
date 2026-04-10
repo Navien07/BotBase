@@ -17,7 +17,7 @@ import {
 
 interface ApiKey {
   id: string
-  label: string
+  name: string
   key_prefix: string
   last_used_at: string | null
   created_at: string
@@ -57,18 +57,18 @@ interface GenerateDialogProps {
 
 function GenerateDialog({ botId, onClose, onCreated }: GenerateDialogProps) {
   const [step, setStep] = useState<'name' | 'reveal'>('name')
-  const [label, setLabel] = useState('')
+  const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [rawKey, setRawKey] = useState('')
 
   const handleGenerate = async () => {
-    if (!label.trim()) return
+    if (!name.trim()) return
     setLoading(true)
     try {
       const res = await fetch(`/api/keys/${botId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: label.trim() }),
+        body: JSON.stringify({ name: name.trim() }),
       })
       const data = await res.json() as { key?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate key')
@@ -103,8 +103,8 @@ function GenerateDialog({ botId, onClose, onCreated }: GenerateDialogProps) {
             <input
               type="text"
               placeholder="e.g. Production Bot, n8n Integration"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleGenerate() }}
               className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-4"
               style={{
@@ -124,7 +124,7 @@ function GenerateDialog({ botId, onClose, onCreated }: GenerateDialogProps) {
               </button>
               <button
                 onClick={handleGenerate}
-                disabled={!label.trim() || loading}
+                disabled={!name.trim() || loading}
                 className="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-opacity disabled:opacity-50"
                 style={{ background: 'var(--bb-primary)', color: '#fff' }}
               >
@@ -183,12 +183,12 @@ function GenerateDialog({ botId, onClose, onCreated }: GenerateDialogProps) {
 interface RevokeDialogProps {
   botId: string
   keyId: string
-  label: string
+  name: string
   onClose: () => void
   onRevoked: () => void
 }
 
-function RevokeDialog({ botId, keyId, label, onClose, onRevoked }: RevokeDialogProps) {
+function RevokeDialog({ botId, keyId, name, onClose, onRevoked }: RevokeDialogProps) {
   const [loading, setLoading] = useState(false)
 
   const handleRevoke = async () => {
@@ -221,7 +221,7 @@ function RevokeDialog({ botId, keyId, label, onClose, onRevoked }: RevokeDialogP
           Revoke this key?
         </h3>
         <p className="text-sm mb-4" style={{ color: 'var(--bb-text-2)' }}>
-          <span className="font-medium" style={{ color: 'var(--bb-text-1)' }}>{label}</span> will
+          <span className="font-medium" style={{ color: 'var(--bb-text-1)' }}>{name}</span> will
           stop working immediately. This action cannot be undone.
         </p>
         <div className="flex gap-3 justify-end">
@@ -338,7 +338,7 @@ export default function ApiKeysPage() {
                   >
                     {/* Name */}
                     <td className="px-4 py-3 font-medium" style={{ color: 'var(--bb-text-1)' }}>
-                      {k.label}
+                      {k.name}
                     </td>
 
                     {/* Key (masked) */}
@@ -409,7 +409,7 @@ export default function ApiKeysPage() {
         <RevokeDialog
           botId={botId}
           keyId={revoking.id}
-          label={revoking.label}
+          name={revoking.name}
           onClose={() => setRevoking(null)}
           onRevoked={fetchKeys}
         />

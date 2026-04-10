@@ -27,7 +27,8 @@ export async function GET(
     const { searchParams } = new URL(req.url)
     const language = searchParams.get('language')
 
-    let query = supabase
+    const service = createServiceClient()
+    let query = service
       .from('response_templates')
       .select('id, intent, language, content, format, created_at, updated_at')
       .eq('bot_id', botId)

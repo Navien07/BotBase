@@ -7,7 +7,7 @@ import { logAudit } from '@/lib/audit/logger'
 // ─── Validation ────────────────────────────────────────────────────────────────
 
 const CreateKeySchema = z.object({
-  label: z.string().min(1).max(100),
+  name: z.string().min(1).max(100),
 })
 
 // ─── GET: list api keys for botId ─────────────────────────────────────────────
@@ -25,7 +25,7 @@ export async function GET(
   try {
     const { data, error } = await supabase
       .from('api_keys')
-      .select('id, label, key_prefix, last_used_at, created_at, revoked_at')
+      .select('id, name, key_prefix, last_used_at, created_at, revoked_at')
       .eq('bot_id', botId)
       .order('created_at', { ascending: false })
 
@@ -71,11 +71,11 @@ export async function POST(
       .from('api_keys')
       .insert({
         bot_id: botId,
-        label: parsed.data.label,
+        name: parsed.data.name,
         key_prefix: keyPrefix,
         key_hash: keyHash,
       })
-      .select('id, label, key_prefix, created_at, revoked_at')
+      .select('id, name, key_prefix, created_at, revoked_at')
       .single()
 
     if (error) throw error
@@ -84,7 +84,7 @@ export async function POST(
       action: 'api_key_created',
       botId,
       userId: user.id,
-      metadata: { label: parsed.data.label, key_prefix: keyPrefix },
+      metadata: { name: parsed.data.name, key_prefix: keyPrefix },
     }).catch(console.error)
 
     // Return raw key — this is the ONLY time it is shown

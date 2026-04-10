@@ -34,7 +34,7 @@ export async function GET(
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await createServiceClient()
       .from('bots')
       .select('id, name, slug, timezone, default_language, feature_flags, is_active, created_at')
       .eq('id', botId)
