@@ -16,12 +16,18 @@ export default async function OverviewPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/login')
+  // Do NOT redirect('/login') here — authenticated user → login → proxy → /dashboard/overview → loop
+  // Layout already handles auth; treat missing profile as a new user with no bots
 
   // Get accessible bot IDs
   let botsQuery = supabase.from('bots').select('id, name, is_active')
-  if (profile.role !== 'super_admin' && profile.tenant_id) {
+  if (profile && profile.role !== 'super_admin' && profile.tenant_id) {
     botsQuery = botsQuery.eq('tenant_id', profile.tenant_id)
+  } else if (profile && profile.role === 'super_admin') {
+    // super_admin sees all bots — no filter
+  } else {
+    // No profile or tenant_admin with no tenant — show empty state
+    botsQuery = botsQuery.eq('tenant_id', 'no-tenant-placeholder').limit(0)
   }
   const { data: bots } = await botsQuery
 
@@ -197,10 +203,8 @@ export default async function OverviewPage() {
                   <Link
                     key={conv.id}
                     href={`/dashboard/bots/${conv.bot_id}/conversations/${conv.id}`}
-                    className="flex items-center gap-3 px-5 py-3 transition-colors block"
+                    className="flex items-center gap-3 px-5 py-3 transition-colors block hover:bg-[var(--bb-surface-2)]"
                     style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-2)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                   >
                     <span className="text-lg flex-shrink-0">
                       {channelEmoji[conv.channel] ?? '💬'}
@@ -243,10 +247,7 @@ export default async function OverviewPage() {
               <Link
                 key={action.label}
                 href={action.href}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-                style={{ color: 'var(--bb-text-2)', background: 'var(--bb-surface-2)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-3)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bb-surface-2)' }}
+                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors bg-[var(--bb-surface-2)] hover:bg-[var(--bb-surface-3)] text-[var(--bb-text-2)]"
               >
                 <div
                   className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"

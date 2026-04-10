@@ -15,15 +15,18 @@ export default async function BotsPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/login')
+  // Do NOT redirect('/login') — authenticated user → login → proxy → /dashboard → loop
+  // Layout already handles auth; missing profile means new user, show empty state
 
   let query = supabase
     .from('bots')
     .select('id, name, slug, is_active, avatar_url, default_language, created_at, feature_flags')
     .order('created_at', { ascending: true })
 
-  if (profile.role !== 'super_admin' && profile.tenant_id) {
+  if (profile && profile.role !== 'super_admin' && profile.tenant_id) {
     query = query.eq('tenant_id', profile.tenant_id)
+  } else if (!profile || (profile.role !== 'super_admin' && !profile.tenant_id)) {
+    query = query.eq('tenant_id', 'no-tenant-placeholder').limit(0)
   }
 
   const { data: bots } = await query
@@ -41,10 +44,7 @@ export default async function BotsPage() {
         </div>
         <Link
           href="/dashboard/bots/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          style={{ background: 'var(--bb-primary)', color: '#fff' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-primary-h)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bb-primary)' }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--bb-primary)] hover:bg-[var(--bb-primary-h)] text-white"
         >
           <Plus size={16} />
           New Bot
@@ -90,10 +90,8 @@ export default async function BotsPage() {
             <Link
               key={bot.id}
               href={`/dashboard/bots/${bot.id}/overview`}
-              className="rounded-xl border p-5 flex flex-col gap-4 transition-colors block"
-              style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--bb-primary)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--bb-border)' }}
+              className="rounded-xl border border-[var(--bb-border)] hover:border-[var(--bb-primary)] p-5 flex flex-col gap-4 transition-colors block"
+              style={{ background: 'var(--bb-surface)' }}
             >
               <div className="flex items-start justify-between">
                 <div

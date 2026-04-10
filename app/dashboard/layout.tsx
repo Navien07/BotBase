@@ -30,23 +30,26 @@ export default async function DashboardLayout({
       .split(',').map((e: string) => e.trim())
     const role: UserRole = superAdminEmails.includes(user.email ?? '')
       ? 'super_admin'
-      : 'agent'
+      : 'tenant_admin'
     const serviceClient = createServiceClient()
-    const { data: created } = await serviceClient
+    const { data: created, error: upsertError } = await serviceClient
       .from('profiles')
       .upsert({
         id: user.id,
         role,
-        display_name: (user.user_metadata?.full_name as string | undefined) ?? user.email ?? 'User',
+        display_name: (user.user_metadata?.full_name as string | undefined) ?? user.email?.split('@')[0] ?? 'User',
         language_preference: 'en',
         tenant_id: null,
       })
       .select()
       .single()
+    if (upsertError) console.error('[dashboard/layout] profile upsert failed:', upsertError.message)
     profile = created
   }
 
-  if (!profile) redirect('/login')
+  // DO NOT redirect('/login') here — would cause an infinite loop with proxy.ts
+  // (proxy sees authenticated user → redirects back to /dashboard/overview → layout → redirect → loop)
+  console.log('[dashboard/layout] user:', user?.email, 'profile:', (profile as Profile | null)?.role ?? 'MISSING')
 
   // Fetch bots for this tenant (or all bots for super_admin)
   let botsQuery = supabase
