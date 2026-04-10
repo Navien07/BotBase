@@ -1,0 +1,42 @@
+{
+  "Navigation": {
+    "overview": "Gambaran Keseluruhan",
+    "conversations": "Perbualan",
+    "contacts": "Kenalan",
+    "broadcasts": "Siaran",
+    "followups": "Susulan",
+    "scripts": "Pembina Aliran",
+    "knowledge": "Pangkalan Pengetahuan",
+    "faqs": "Soalan Lazim",
+    "personality": "Personaliti",
+    "guardrails": "Garis Panduan",
+    "templates": "Templat",
+    "booking": "Tempahan",
+    "channels": "Saluran",
+    "widget": "Widget Web",
+    "integrations": "Integrasi",
+    "testing": "Konsol Ujian",
+    "apiKeys": "Kunci API",
+    "settings": "Tetapan",
+    "superAdmin": "Super Admin",
+    "allTenants": "Semua Penyewa",
+    "botsMonitor": "Monitor Bot",
+    "users": "Pengguna",
+    "billing": "Penggunaan"
+  },
+  "Common": {
+    "save": "Simpan Perubahan",
+    "cancel": "Batal",
+    "delete": "Padam",
+    "edit": "Edit",
+    "add": "Tambah",
+    "search": "Cari...",
+    "loading": "Memuatkan...",
+    "error": "Berlaku ralat",
+    "empty": "Tiada data lagi",
+    "active": "Aktif",
+    "inactive": "Tidak Aktif",
+    "enabled": "Didayakan",
+    "disabled": "Dilumpuhkan"
+  }
+}

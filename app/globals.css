@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -39,92 +39,86 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 1.0);
+  --radius-lg: calc(var(--radius) * 1.5);
+  --radius-xl: calc(var(--radius) * 2.0);
+  --radius-2xl: calc(var(--radius) * 2.5);
 }
 
+/* BotBase dark design system — always dark, no light mode toggle */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* shadcn token overrides → BotBase palette */
+  --background: oklch(0.06 0 0);         /* #080808 */
+  --foreground: oklch(0.94 0 0);         /* #f0f0f0 */
+  --card: oklch(0.09 0 0);               /* #101010 */
+  --card-foreground: oklch(0.94 0 0);
+  --popover: oklch(0.10 0 0);            /* #161616 */
+  --popover-foreground: oklch(0.94 0 0);
+  --primary: oklch(0.585 0.223 264.4);   /* #6366f1 indigo */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.13 0 0);          /* #1e1e1e */
+  --secondary-foreground: oklch(0.63 0 0);
+  --muted: oklch(0.11 0 0);              /* #161616 */
+  --muted-foreground: oklch(0.37 0 0);   /* #505050 */
+  --accent: oklch(0.845 0.145 196.4);    /* #22d3ee cyan */
+  --accent-foreground: oklch(0.06 0 0);
+  --destructive: oklch(0.637 0.217 25.3); /* #ef4444 */
+  --border: oklch(0.165 0 0);            /* #242424 */
+  --input: oklch(0.13 0 0);              /* #1e1e1e */
+  --ring: oklch(0.585 0.223 264.4);      /* indigo */
+  --radius: 0.5rem;
+
+  /* Chart colors */
+  --chart-1: oklch(0.585 0.223 264.4);  /* indigo */
+  --chart-2: oklch(0.845 0.145 196.4);  /* cyan */
+  --chart-3: oklch(0.720 0.190 142.5);  /* green */
+  --chart-4: oklch(0.780 0.175 55.0);   /* amber */
+  --chart-5: oklch(0.637 0.217 25.3);   /* red */
+
+  /* Sidebar */
+  --sidebar: oklch(0.07 0 0);            /* #0c0c0c */
+  --sidebar-foreground: oklch(0.94 0 0);
+  --sidebar-primary: oklch(0.585 0.223 264.4);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.12 0 0);
+  --sidebar-accent-foreground: oklch(0.94 0 0);
+  --sidebar-border: oklch(0.14 0 0);
+  --sidebar-ring: oklch(0.585 0.223 264.4);
+
+  /* BotBase semantic tokens (used directly as CSS vars in components) */
+  --bb-bg:             #080808;
+  --bb-surface:        #101010;
+  --bb-surface-2:      #161616;
+  --bb-surface-3:      #1e1e1e;
+  --bb-border:         #242424;
+  --bb-border-subtle:  #181818;
+  --bb-text-1:         #f0f0f0;
+  --bb-text-2:         #a0a0a0;
+  --bb-text-3:         #505050;
+  --bb-primary:        #6366f1;
+  --bb-primary-h:      #4f46e5;
+  --bb-primary-subtle: rgba(99, 102, 241, 0.10);
+  --bb-accent:         #22d3ee;
+  --bb-success:        #22c55e;
+  --bb-warning:        #f59e0b;
+  --bb-danger:         #ef4444;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
+/* No .dark class — BotBase is always dark */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
+    color-scheme: dark;
     @apply font-sans;
+  }
+  body {
+    background-color: var(--bb-bg);
+    color: var(--bb-text-1);
+  }
+  code, kbd, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'Geist Mono', ui-monospace, monospace;
   }
 }

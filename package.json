@@ -5,7 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "postinstall": "node scripts/patch-voyageai-esm.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

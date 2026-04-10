@@ -1,0 +1,42 @@
+{
+  "Navigation": {
+    "overview": "Overview",
+    "conversations": "Conversations",
+    "contacts": "Contacts",
+    "broadcasts": "Broadcasts",
+    "followups": "Follow-ups",
+    "scripts": "Flow Builder",
+    "knowledge": "Knowledge Base",
+    "faqs": "FAQs",
+    "personality": "Personality",
+    "guardrails": "Guardrails",
+    "templates": "Templates",
+    "booking": "Booking",
+    "channels": "Channels",
+    "widget": "Web Widget",
+    "integrations": "Integrations",
+    "testing": "Testing Console",
+    "apiKeys": "API Keys",
+    "settings": "Settings",
+    "superAdmin": "Super Admin",
+    "allTenants": "All Tenants",
+    "botsMonitor": "Bots Monitor",
+    "users": "Users",
+    "billing": "Usage"
+  },
+  "Common": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search...",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "empty": "No data yet",
+    "active": "Active",
+    "inactive": "Inactive",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  }
+}
