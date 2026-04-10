@@ -49,7 +49,6 @@ export default async function DashboardLayout({
 
   // DO NOT redirect('/login') here — would cause an infinite loop with proxy.ts
   // (proxy sees authenticated user → redirects back to /dashboard/overview → layout → redirect → loop)
-  console.log('[dashboard/layout] user:', user?.email, 'profile:', (profile as Profile | null)?.role ?? 'MISSING')
 
   // Fetch bots for this tenant (or all bots for super_admin)
   let botsQuery = supabase
