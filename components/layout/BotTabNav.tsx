@@ -11,6 +11,8 @@ const BOT_TABS = [
   { label: 'Personality', path: '/personality' },
   { label: 'Guardrails', path: '/guardrails' },
   { label: 'Channels', path: '/channels' },
+  { label: 'API Keys', path: '/api-keys' },
+  { label: 'Integrations', path: '/integrations' },
   { label: 'Testing', path: '/testing' },
 ]
 
