@@ -62,7 +62,7 @@ export default async function BotsPage() {
           </p>
         </div>
         <Link
-          href="/dashboard/clients/new"
+          href={isSuperAdmin ? '/dashboard/clients/new' : '/dashboard/bots/new'}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--bb-primary)] hover:bg-[var(--bb-primary-h)] text-white"
         >
           <Plus size={16} />
@@ -88,7 +88,7 @@ export default async function BotsPage() {
             {isSuperAdmin ? 'Create your first client and bot to get started' : 'Create your first AI agent to get started'}
           </p>
           <Link
-            href="/dashboard/clients/new"
+            href={isSuperAdmin ? '/dashboard/clients/new' : '/dashboard/bots/new'}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium"
             style={{ background: 'var(--bb-primary)', color: '#fff' }}
           >
