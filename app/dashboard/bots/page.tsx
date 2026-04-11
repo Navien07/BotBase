@@ -61,13 +61,15 @@ export default async function BotsPage() {
             {bots.length} bot{bots.length !== 1 ? 's' : ''} configured
           </p>
         </div>
-        <Link
-          href={isSuperAdmin ? '/dashboard/clients/new' : '/dashboard/bots/new'}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--bb-primary)] hover:bg-[var(--bb-primary-h)] text-white"
-        >
-          <Plus size={16} />
-          {isSuperAdmin ? 'New Client' : 'New Bot'}
-        </Link>
+        {isSuperAdmin && (
+          <Link
+            href="/dashboard/clients/new"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--bb-primary)] hover:bg-[var(--bb-primary-h)] text-white"
+          >
+            <Plus size={16} />
+            New Client
+          </Link>
+        )}
       </div>
 
       {bots.length === 0 ? (
@@ -77,24 +79,28 @@ export default async function BotsPage() {
         >
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: 'var(--bb-primary-subtle)' }}
+            style={{ background: 'rgba(99,102,241,0.1)' }}
           >
             <Bot size={28} style={{ color: 'var(--bb-primary)' }} />
           </div>
           <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--bb-text-1)' }}>
-            {isSuperAdmin ? 'No clients yet' : 'No bots yet'}
+            {isSuperAdmin ? 'No clients yet' : 'Awaiting bot setup'}
           </h3>
-          <p className="text-sm mb-6" style={{ color: 'var(--bb-text-3)' }}>
-            {isSuperAdmin ? 'Create your first client and bot to get started' : 'Create your first AI agent to get started'}
+          <p className="text-sm mb-6 text-center max-w-sm" style={{ color: 'var(--bb-text-3)' }}>
+            {isSuperAdmin
+              ? 'Create your first client and bot to get started'
+              : 'Your bot is being configured by the Iceberg AI team. Contact us at navien@icebergaisolutions.com if you need assistance.'}
           </p>
-          <Link
-            href={isSuperAdmin ? '/dashboard/clients/new' : '/dashboard/bots/new'}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium"
-            style={{ background: 'var(--bb-primary)', color: '#fff' }}
-          >
-            <Plus size={16} />
-            {isSuperAdmin ? '+ New Client' : 'Create Bot'}
-          </Link>
+          {isSuperAdmin && (
+            <Link
+              href="/dashboard/clients/new"
+              className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium"
+              style={{ background: 'var(--bb-primary)', color: '#fff' }}
+            >
+              <Plus size={16} />
+              + New Client
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

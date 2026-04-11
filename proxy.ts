@@ -65,23 +65,36 @@ export async function proxy(request: NextRequest) {
           auth: { autoRefreshToken: false, persistSession: false },
         })
 
-        // Fetch tenant_id for this user
+        // Fetch role + tenant_id for this user
         const { data: profile } = await serviceSupabase
           .from('profiles')
-          .select('tenant_id')
+          .select('role, tenant_id')
           .eq('id', user.id)
           .single()
 
-        if (profile?.tenant_id) {
-          // Check onboarding completion
-          const { data: progress } = await serviceSupabase
-            .from('onboarding_progress')
-            .select('completed_at')
-            .eq('tenant_id', profile.tenant_id)
-            .single()
+        // Super admins never need onboarding
+        if (profile?.role === 'super_admin') {
+          // fall through — no onboarding redirect
+        } else if (profile?.tenant_id) {
+          // Check if tenant has any bots (set up by super_admin) or completed onboarding
+          const [{ data: progress }, { data: bots }] = await Promise.all([
+            serviceSupabase
+              .from('onboarding_progress')
+              .select('completed_at')
+              .eq('tenant_id', profile.tenant_id)
+              .single(),
+            serviceSupabase
+              .from('bots')
+              .select('id')
+              .eq('tenant_id', profile.tenant_id)
+              .limit(1),
+          ])
 
-          // No row or not completed → redirect to onboarding
-          if (!progress || !progress.completed_at) {
+          const hasBots = (bots ?? []).length > 0
+          const onboardingDone = progress?.completed_at
+
+          // No bots and onboarding not complete → redirect to onboarding
+          if (!hasBots && !onboardingDone) {
             const url = request.nextUrl.clone()
             url.pathname = '/onboarding/create-bot'
             const redirect = NextResponse.redirect(url)
