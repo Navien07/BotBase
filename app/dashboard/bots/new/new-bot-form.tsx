@@ -651,7 +651,8 @@ function TenantAdminForm() {
 
 // ─── Export ────────────────────────────────────────────────────────────────────
 
-export function NewBotForm({ role }: { role: string }) {
-  if (role === 'super_admin') return <SuperAdminForm />
+export function NewBotForm({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  console.log('[NewBotForm] isSuperAdmin:', isSuperAdmin)
+  if (isSuperAdmin) return <SuperAdminForm />
   return <TenantAdminForm />
 }

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { NewBotForm } from './new-bot-form'
 
@@ -7,11 +8,15 @@ export default async function NewBotPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single()
 
-  return <NewBotForm role={profile?.role ?? 'tenant_admin'} />
+  const isSuperAdmin = profile?.role === 'super_admin'
+  console.log('[NewBotPage] userId:', user.id, 'role:', profile?.role, 'isSuperAdmin:', isSuperAdmin)
+
+  return <NewBotForm isSuperAdmin={isSuperAdmin} />
 }

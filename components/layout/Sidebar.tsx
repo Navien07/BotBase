@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  Lock,
   Building2,
   Activity,
   UserCheck,
@@ -158,6 +159,13 @@ export function Sidebar({ bots, role }: SidebarProps) {
         {/* Bot Switcher */}
         <div className="py-3" style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}>
           <BotSwitcher bots={bots} isCollapsed={collapsed} />
+          {!currentBotId && !collapsed && (
+            <div className="mx-3 mt-2 rounded-lg border border-dashed border-white/20 bg-white/5 px-3 py-2">
+              <p className="text-xs leading-snug" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                👆 Create or select a bot to unlock these features
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Nav */}
@@ -381,7 +389,10 @@ function NavLink({ href, icon: Icon, label, isActive, isCollapsed, disabled }: N
     >
       <Icon size={16} style={{ flexShrink: 0 }} />
       {!isCollapsed && (
-        <span className="text-sm font-medium truncate">{label}</span>
+        <span className="flex items-center gap-1.5 flex-1 min-w-0">
+          <span className="text-sm font-medium truncate">{label}</span>
+          {disabled && <Lock size={10} style={{ marginLeft: 'auto', flexShrink: 0, opacity: 0.6 }} />}
+        </span>
       )}
     </Link>
   )

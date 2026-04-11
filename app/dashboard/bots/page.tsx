@@ -10,7 +10,8 @@ export default async function BotsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('tenant_id, role')
     .eq('id', user.id)
@@ -31,7 +32,6 @@ export default async function BotsPage() {
   let bots: BotRow[] = []
 
   if (isSuperAdmin) {
-    const serviceClient = createServiceClient()
     const { data } = await serviceClient
       .from('bots')
       .select('id, name, slug, is_active, default_language, created_at, tenants(name)')
@@ -66,7 +66,7 @@ export default async function BotsPage() {
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--bb-primary)] hover:bg-[var(--bb-primary-h)] text-white"
         >
           <Plus size={16} />
-          New Bot
+          {isSuperAdmin ? 'New Client' : 'New Bot'}
         </Link>
       </div>
 
@@ -82,10 +82,10 @@ export default async function BotsPage() {
             <Bot size={28} style={{ color: 'var(--bb-primary)' }} />
           </div>
           <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--bb-text-1)' }}>
-            No bots yet
+            {isSuperAdmin ? 'No clients yet' : 'No bots yet'}
           </h3>
           <p className="text-sm mb-6" style={{ color: 'var(--bb-text-3)' }}>
-            {isSuperAdmin ? 'Onboard a client to create the first bot.' : 'Create your first AI agent to get started'}
+            {isSuperAdmin ? 'Create your first client to get started' : 'Create your first AI agent to get started'}
           </p>
           <Link
             href="/dashboard/bots/new"
@@ -93,7 +93,7 @@ export default async function BotsPage() {
             style={{ background: 'var(--bb-primary)', color: '#fff' }}
           >
             <Plus size={16} />
-            {isSuperAdmin ? 'Onboard Client' : 'Create Bot'}
+            {isSuperAdmin ? '+ New Client' : 'Create Bot'}
           </Link>
         </div>
       ) : (
