@@ -99,6 +99,17 @@ export async function POST(req: Request) {
 
   const { name, adminEmail } = parsed.data
 
+  // Block super_admin emails from being used as tenant admins
+  const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+  if (superAdminEmails.includes(adminEmail.toLowerCase())) {
+    return Response.json(
+      { error: 'This email belongs to a platform admin and cannot be used as a client admin.' },
+      { status: 400 }
+    )
+  }
+
   try {
     const serviceClient = createServiceClient()
 
@@ -138,6 +149,14 @@ export async function POST(req: Request) {
     )
 
     if (inviteError) throw inviteError
+
+    // Re-lock the caller's super_admin profile in case inviteUserByEmail
+    // overwrote raw_user_meta_data and triggered a profile update
+    await serviceClient
+      .from('profiles')
+      .update({ role: 'super_admin', tenant_id: null })
+      .eq('id', user.id)
+      .eq('role', 'super_admin') // only fires if they were already super_admin
 
     return Response.json({ tenant, inviteSent: true }, { status: 201 })
   } catch (error) {
