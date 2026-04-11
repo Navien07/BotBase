@@ -85,7 +85,7 @@ export default async function BotsPage() {
             {isSuperAdmin ? 'No clients yet' : 'No bots yet'}
           </h3>
           <p className="text-sm mb-6" style={{ color: 'var(--bb-text-3)' }}>
-            {isSuperAdmin ? 'Create your first client to get started' : 'Create your first AI agent to get started'}
+            {isSuperAdmin ? 'Create your first client and bot to get started' : 'Create your first AI agent to get started'}
           </p>
           <Link
             href="/dashboard/bots/new"

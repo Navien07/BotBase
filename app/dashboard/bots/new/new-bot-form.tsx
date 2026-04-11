@@ -80,7 +80,7 @@ function SuccessState({ info, onReset }: { info: SuccessInfo; onReset: () => voi
 
         <div className="flex gap-3 pt-2">
           <Link
-            href="/dashboard/admin/bots"
+            href="/dashboard/admin/tenants"
             className="flex-1 py-2.5 rounded-lg border text-sm font-medium text-center transition-colors"
             style={{
               background: 'var(--bb-surface-2)',
@@ -88,7 +88,7 @@ function SuccessState({ info, onReset }: { info: SuccessInfo; onReset: () => voi
               color: 'var(--bb-text-2)',
             }}
           >
-            View All Bots
+            View All Clients
           </Link>
           <button
             onClick={onReset}
