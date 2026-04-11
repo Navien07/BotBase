@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Plus, Bot, Wifi, MessageSquare } from 'lucide-react'
+import { isSuperAdminEmail } from '@/lib/auth/super-admin'
 
 export default async function BotsPage() {
   const supabase = await createClient()
@@ -17,7 +18,7 @@ export default async function BotsPage() {
     .eq('id', user.id)
     .single()
 
-  const isSuperAdmin = profile?.role === 'super_admin'
+  const isSuperAdmin = isSuperAdminEmail(user.email) || profile?.role === 'super_admin'
 
   type BotRow = {
     id: string

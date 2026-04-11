@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
+import { isSuperAdminEmail } from '@/lib/auth/super-admin'
 
 const createTenantSchema = z.object({
   name: z.string().min(1).max(200),
@@ -28,7 +29,7 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'super_admin') {
+  if (!isSuperAdminEmail(user.email) && profile?.role !== 'super_admin') {
     return Response.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'super_admin') {
+  if (!isSuperAdminEmail(user.email) && profile?.role !== 'super_admin') {
     return Response.json({ error: 'Forbidden' }, { status: 403 })
   }
 

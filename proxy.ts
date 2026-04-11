@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseServiceClient } from '@supabase/supabase-js'
+import { isSuperAdminEmail } from '@/lib/auth/super-admin'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -72,8 +73,8 @@ export async function proxy(request: NextRequest) {
           .eq('id', user.id)
           .single()
 
-        // Super admins never need onboarding
-        if (profile?.role === 'super_admin') {
+        // Super admins never need onboarding (check by email — immutable JWT claim)
+        if (isSuperAdminEmail(user.email) || profile?.role === 'super_admin') {
           // fall through — no onboarding redirect
         } else if (profile?.tenant_id) {
           // Check if tenant has any bots (set up by super_admin) or completed onboarding

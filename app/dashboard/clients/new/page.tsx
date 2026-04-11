@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/service'
+import { isSuperAdminEmail } from '@/lib/auth/super-admin'
 import NewClientForm from './new-client-form'
 
 export default async function NewClientPage() {
@@ -9,16 +9,8 @@ export default async function NewClientPage() {
 
   if (!user) redirect('/login')
 
-  const service = createServiceClient()
-  const { data: profile } = await service
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  console.log('NewClientPage role check:', profile?.role, 'userId:', user.id)
-
-  if (profile?.role !== 'super_admin') {
+  // Use email as the source of truth — not profiles.role which can be overwritten
+  if (!isSuperAdminEmail(user.email)) {
     redirect('/dashboard/overview')
   }
 
