@@ -36,7 +36,7 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
     if (bots.length === 0) {
       return (
         <Link
-          href="/dashboard/bots/new"
+          href="/dashboard/clients/new"
           className="flex items-center justify-center w-10 h-10 rounded-lg transition-colors mx-auto"
           style={{ background: 'var(--bb-surface-2)' }}
           title="Create your first bot"
@@ -61,7 +61,7 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
     return (
       <div className="px-3">
         <Link
-          href="/dashboard/bots/new"
+          href="/dashboard/clients/new"
           className="flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-colors"
           style={{ background: 'var(--bb-surface-2)', color: 'var(--bb-primary)' }}
         >
@@ -145,7 +145,7 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
                 style={{ color: 'var(--bb-primary)' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-3)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                onClick={() => { setOpen(false); router.push('/dashboard/bots/new') }}
+                onClick={() => { setOpen(false); router.push('/dashboard/clients/new') }}
               >
                 <Plus size={12} />
                 Create new bot

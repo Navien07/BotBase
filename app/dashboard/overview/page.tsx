@@ -121,7 +121,7 @@ export default async function OverviewPage() {
     { label: 'Add Knowledge', icon: BookOpen, href: hasBots && botIds[0] ? `/dashboard/bots/${botIds[0]}/knowledge` : '/dashboard/bots' },
     { label: 'Build Flow', icon: GitBranch, href: hasBots && botIds[0] ? `/dashboard/bots/${botIds[0]}/scripts` : '/dashboard/bots' },
     { label: 'Connect Channel', icon: Wifi, href: hasBots && botIds[0] ? `/dashboard/bots/${botIds[0]}/channels` : '/dashboard/bots' },
-    { label: 'New Bot', icon: Plus, href: '/dashboard/bots/new' },
+    { label: 'New Bot', icon: Plus, href: '/dashboard/clients/new' },
   ]
 
   const channelEmoji: Record<string, string> = {
