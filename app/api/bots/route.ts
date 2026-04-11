@@ -9,6 +9,7 @@ const CreateBotSchema = z.object({
   industry: z.string().min(1).max(100).optional(),
   default_language: z.enum(['en', 'bm', 'zh']).default('en'),
   personality_preset: z.enum(['friendly', 'professional', 'enthusiastic']).default('friendly'),
+  tenant_id: z.string().uuid().optional(),
 })
 
 function slugify(name: string): string {
@@ -20,6 +21,49 @@ function slugify(name: string): string {
     .replace(/-+/g, '-')
     .slice(0, 60)
 }
+
+// ─── GET: list bots ───────────────────────────────────────────────────────────
+
+export async function GET() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const serviceClient = createServiceClient()
+
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('tenant_id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) return Response.json({ bots: [] })
+
+    let query = serviceClient
+      .from('bots')
+      .select('id, name, slug, is_active, default_language, created_at, tenant_id, tenants(name)')
+      .order('created_at', { ascending: false })
+
+    if (profile.role !== 'super_admin') {
+      if (!profile.tenant_id) return Response.json({ bots: [] })
+      query = query.eq('tenant_id', profile.tenant_id)
+    }
+
+    const { data: bots, error } = await query
+    if (error) throw error
+
+    return Response.json({ bots: bots ?? [] })
+  } catch (error) {
+    console.error('[bots GET]', error)
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// ─── POST: create bot ─────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -38,7 +82,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { name, industry, default_language, personality_preset } = parsed.data
+  const { name, industry, default_language, personality_preset, tenant_id: bodyTenantId } = parsed.data
 
   try {
     const serviceClient = createServiceClient()
@@ -49,8 +93,18 @@ export async function POST(req: Request) {
       .eq('id', user.id)
       .single()
 
-    if (!profile?.tenant_id) {
-      return Response.json({ error: 'No tenant found for this user' }, { status: 400 })
+    let tenantId: string
+
+    if (profile?.role === 'super_admin') {
+      if (!bodyTenantId) {
+        return Response.json({ error: 'tenant_id is required for super_admin' }, { status: 400 })
+      }
+      tenantId = bodyTenantId
+    } else {
+      if (!profile?.tenant_id) {
+        return Response.json({ error: 'No tenant found for this user' }, { status: 400 })
+      }
+      tenantId = profile.tenant_id
     }
 
     // Generate unique slug
@@ -58,7 +112,6 @@ export async function POST(req: Request) {
     const suffix = Math.random().toString(36).slice(2, 7)
     const slug = `${baseSlug}-${suffix}`
 
-    // Personality preset → system prompt defaults
     const SYSTEM_PROMPT_DEFAULTS: Record<string, string> = {
       friendly: 'You are a friendly and helpful AI assistant. Be warm, approachable, and supportive in every interaction.',
       professional: 'You are a professional AI assistant. Maintain a formal, precise, and knowledgeable tone at all times.',
@@ -68,7 +121,7 @@ export async function POST(req: Request) {
     const { data: bot, error } = await serviceClient
       .from('bots')
       .insert({
-        tenant_id: profile.tenant_id,
+        tenant_id: tenantId,
         name,
         bot_name: name,
         slug,
@@ -97,8 +150,6 @@ export async function POST(req: Request) {
         fallback_message: "I'm sorry, I can only help with questions related to our business.",
         greeting_en: 'Hi! How can I help you today? 😊',
         greeting_bm: 'Hai! Bagaimana saya boleh membantu anda hari ini? 😊',
-        // Store industry in metadata via a workaround — store in system_prompt context
-        // Industry is captured in onboarding_progress and used for prompt regeneration
         ...(industry ? { system_prompt: SYSTEM_PROMPT_DEFAULTS[personality_preset] } : {}),
       })
       .select('id, name, slug, tenant_id, is_active, default_language, personality_preset')

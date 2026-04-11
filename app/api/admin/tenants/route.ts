@@ -4,8 +4,8 @@ import { z } from 'zod'
 
 const createTenantSchema = z.object({
   name: z.string().min(1).max(200),
-  email: z.string().email(),
-  role: z.enum(['tenant_admin', 'agent']).default('tenant_admin'),
+  adminEmail: z.string().email(),
+  industry: z.string().min(1).max(100).optional(),
 })
 
 function slugify(name: string): string {
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { name, email, role } = parsed.data
+  const { name, adminEmail } = parsed.data
 
   try {
     const serviceClient = createServiceClient()
@@ -127,19 +127,19 @@ export async function POST(req: Request) {
     if (tenantError) throw tenantError
 
     // Invite user via Supabase auth admin API
-    const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-      email,
+    const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
+      adminEmail,
       {
         data: {
           tenant_id: tenant.id,
-          role,
+          role: 'tenant_admin',
         },
       }
     )
 
     if (inviteError) throw inviteError
 
-    return Response.json({ tenant, user: inviteData.user }, { status: 201 })
+    return Response.json({ tenant, inviteSent: true }, { status: 201 })
   } catch (error) {
     console.error('[admin/tenants POST]', error)
     return Response.json(

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { Plus, Bot, Wifi, MessageSquare } from 'lucide-react'
 
@@ -15,31 +16,49 @@ export default async function BotsPage() {
     .eq('id', user.id)
     .single()
 
-  // Do NOT redirect('/login') — authenticated user → login → proxy → /dashboard → loop
-  // Layout already handles auth; missing profile means new user, show empty state
+  const isSuperAdmin = profile?.role === 'super_admin'
 
-  let query = supabase
-    .from('bots')
-    .select('id, name, slug, is_active, avatar_url, default_language, created_at, feature_flags')
-    .order('created_at', { ascending: true })
-
-  if (profile && profile.role !== 'super_admin' && profile.tenant_id) {
-    query = query.eq('tenant_id', profile.tenant_id)
-  } else if (!profile || (profile.role !== 'super_admin' && !profile.tenant_id)) {
-    query = query.eq('tenant_id', 'no-tenant-placeholder').limit(0)
+  type BotRow = {
+    id: string
+    name: string
+    slug: string
+    is_active: boolean
+    default_language: string
+    created_at: string
+    tenantName?: string
   }
 
-  const { data: bots } = await query
+  let bots: BotRow[] = []
+
+  if (isSuperAdmin) {
+    const serviceClient = createServiceClient()
+    const { data } = await serviceClient
+      .from('bots')
+      .select('id, name, slug, is_active, default_language, created_at, tenants(name)')
+      .order('created_at', { ascending: false })
+    bots = (data ?? []).map((b) => {
+      const t = b.tenants
+      const tenantName = Array.isArray(t) ? (t[0] as { name: string } | undefined)?.name : (t as { name: string } | null)?.name
+      return { ...b, tenants: undefined, tenantName }
+    })
+  } else if (profile?.tenant_id) {
+    const { data } = await supabase
+      .from('bots')
+      .select('id, name, slug, is_active, default_language, created_at')
+      .eq('tenant_id', profile.tenant_id)
+      .order('created_at', { ascending: true })
+    bots = (data ?? []).map((b) => ({ ...b, tenantName: undefined }))
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-semibold" style={{ color: 'var(--bb-text-1)' }}>
-            My Bots
+            {isSuperAdmin ? 'All Bots' : 'My Bots'}
           </h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
-            {(bots ?? []).length} bot{(bots ?? []).length !== 1 ? 's' : ''} configured
+            {bots.length} bot{bots.length !== 1 ? 's' : ''} configured
           </p>
         </div>
         <Link
@@ -51,7 +70,7 @@ export default async function BotsPage() {
         </Link>
       </div>
 
-      {(!bots || bots.length === 0) ? (
+      {bots.length === 0 ? (
         <div
           className="flex flex-col items-center justify-center py-20 rounded-xl border"
           style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)' }}
@@ -66,7 +85,7 @@ export default async function BotsPage() {
             No bots yet
           </h3>
           <p className="text-sm mb-6" style={{ color: 'var(--bb-text-3)' }}>
-            Create your first AI agent to get started
+            {isSuperAdmin ? 'Onboard a client to create the first bot.' : 'Create your first AI agent to get started'}
           </p>
           <Link
             href="/dashboard/bots/new"
@@ -74,19 +93,12 @@ export default async function BotsPage() {
             style={{ background: 'var(--bb-primary)', color: '#fff' }}
           >
             <Plus size={16} />
-            Create Bot
+            {isSuperAdmin ? 'Onboard Client' : 'Create Bot'}
           </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bots.map((bot: {
-            id: string
-            name: string
-            slug: string
-            is_active: boolean
-            default_language: string
-            created_at: string
-          }) => (
+          {bots.map((bot) => (
             <Link
               key={bot.id}
               href={`/dashboard/bots/${bot.id}/overview`}
@@ -118,6 +130,14 @@ export default async function BotsPage() {
                 <p className="text-xs mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
                   {bot.slug} · {bot.default_language.toUpperCase()}
                 </p>
+                {isSuperAdmin && bot.tenantName && (
+                  <span
+                    className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full"
+                    style={{ background: 'var(--bb-surface-3)', color: 'var(--bb-text-3)' }}
+                  >
+                    {bot.tenantName}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-3 mt-auto">
