@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
+  Bot as BotIcon,
   MessageSquare,
   Users,
   Radio,
@@ -137,9 +138,12 @@ export function Sidebar({ bots, role }: SidebarProps) {
   // Determine current bot from URL
   const botMatch = pathname.match(/\/dashboard\/bots\/([^/]+)/)
   const currentBotId = botMatch?.[1] ?? bots[0]?.id ?? null
-  const botSections = currentBotId ? getBotNavSections(currentBotId) : []
+  // Always show bot sections — disabled (greyed out) when no bot exists yet
+  const botSections = getBotNavSections(currentBotId ?? 'select')
+  const botSectionsDisabled = !currentBotId
 
   const overviewActive = pathname === '/dashboard/overview'
+  const botsActive = pathname === '/dashboard/bots'
 
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(href + '/')
@@ -165,6 +169,13 @@ export function Sidebar({ bots, role }: SidebarProps) {
             isActive={overviewActive}
             isCollapsed={collapsed}
           />
+          <NavLink
+            href="/dashboard/bots"
+            icon={BotIcon}
+            label={t('Navigation.bots')}
+            isActive={botsActive}
+            isCollapsed={collapsed}
+          />
           {botSections.map((section, i) => (
             <div key={i} className="mt-4">
               {section.label && !collapsed && (
@@ -178,11 +189,12 @@ export function Sidebar({ bots, role }: SidebarProps) {
               {section.items.map((item) => (
                 <NavLink
                   key={item.key}
-                  href={item.href}
+                  href={botSectionsDisabled ? '/dashboard/bots' : item.href}
                   icon={item.icon}
                   label={t(`Navigation.${item.key}`)}
-                  isActive={isActive(item.href)}
+                  isActive={!botSectionsDisabled && isActive(item.href)}
                   isCollapsed={collapsed}
+                  disabled={botSectionsDisabled}
                 />
               ))}
             </div>
@@ -341,9 +353,10 @@ interface NavLinkProps {
   label: string
   isActive: boolean
   isCollapsed: boolean
+  disabled?: boolean
 }
 
-function NavLink({ href, icon: Icon, label, isActive, isCollapsed }: NavLinkProps) {
+function NavLink({ href, icon: Icon, label, isActive, isCollapsed, disabled }: NavLinkProps) {
   return (
     <Link
       href={href}
@@ -353,15 +366,17 @@ function NavLink({ href, icon: Icon, label, isActive, isCollapsed }: NavLinkProp
         padding: isCollapsed ? '8px' : '8px 10px',
         justifyContent: isCollapsed ? 'center' : 'flex-start',
         background: isActive ? 'var(--bb-primary-subtle)' : 'transparent',
-        color: isActive ? 'var(--bb-primary)' : 'var(--bb-text-2)',
+        color: isActive ? 'var(--bb-primary)' : disabled ? 'var(--bb-text-3)' : 'var(--bb-text-2)',
         borderLeft: isActive && !isCollapsed ? '3px solid var(--bb-primary)' : '3px solid transparent',
         marginLeft: isCollapsed ? 0 : undefined,
+        opacity: disabled ? 0.45 : 1,
+        pointerEvents: disabled ? 'none' : undefined,
       }}
       onMouseEnter={(e) => {
-        if (!isActive) e.currentTarget.style.background = 'var(--bb-surface-2)'
+        if (!isActive && !disabled) e.currentTarget.style.background = 'var(--bb-surface-2)'
       }}
       onMouseLeave={(e) => {
-        if (!isActive) e.currentTarget.style.background = 'transparent'
+        if (!isActive && !disabled) e.currentTarget.style.background = 'transparent'
       }}
     >
       <Icon size={16} style={{ flexShrink: 0 }} />
