@@ -360,7 +360,7 @@ function NavLink({ href, icon: Icon, label, isActive, isCollapsed, disabled }: N
   return (
     <Link
       href={href}
-      title={isCollapsed ? label : undefined}
+      title={disabled ? 'Select a bot to access this section' : isCollapsed ? label : undefined}
       className="flex items-center gap-2.5 rounded-lg transition-colors relative"
       style={{
         padding: isCollapsed ? '8px' : '8px 10px',
@@ -370,7 +370,7 @@ function NavLink({ href, icon: Icon, label, isActive, isCollapsed, disabled }: N
         borderLeft: isActive && !isCollapsed ? '3px solid var(--bb-primary)' : '3px solid transparent',
         marginLeft: isCollapsed ? 0 : undefined,
         opacity: disabled ? 0.45 : 1,
-        pointerEvents: disabled ? 'none' : undefined,
+        cursor: disabled ? 'default' : undefined,
       }}
       onMouseEnter={(e) => {
         if (!isActive && !disabled) e.currentTarget.style.background = 'var(--bb-surface-2)'

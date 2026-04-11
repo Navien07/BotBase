@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ChevronDown, Bot, Plus } from 'lucide-react'
 import type { Bot as BotType } from '@/types/database'
 
@@ -32,6 +33,18 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
   }
 
   if (isCollapsed) {
+    if (bots.length === 0) {
+      return (
+        <Link
+          href="/dashboard/bots/new"
+          className="flex items-center justify-center w-10 h-10 rounded-lg transition-colors mx-auto"
+          style={{ background: 'var(--bb-surface-2)' }}
+          title="Create your first bot"
+        >
+          <Plus size={18} style={{ color: 'var(--bb-primary)' }} />
+        </Link>
+      )
+    }
     return (
       <button
         className="flex items-center justify-center w-10 h-10 rounded-lg transition-colors mx-auto"
@@ -41,6 +54,21 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
       >
         <Bot size={18} style={{ color: 'var(--bb-primary)' }} />
       </button>
+    )
+  }
+
+  if (bots.length === 0) {
+    return (
+      <div className="px-3">
+        <Link
+          href="/dashboard/bots/new"
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-colors"
+          style={{ background: 'var(--bb-surface-2)', color: 'var(--bb-primary)' }}
+        >
+          <Plus size={14} style={{ flexShrink: 0 }} />
+          <span className="text-xs font-medium">Create your first bot</span>
+        </Link>
+      </div>
     )
   }
 
