@@ -76,7 +76,7 @@ export function TopBar({ userEmail, displayName }: TopBarProps) {
 
   return (
     <header
-      className="flex items-center justify-between h-14 px-6 flex-shrink-0"
+      className="flex items-center justify-between h-14 pl-14 pr-6 md:px-6 flex-shrink-0"
       style={{
         background: 'var(--bb-surface)',
         borderBottom: '1px solid var(--bb-border)',

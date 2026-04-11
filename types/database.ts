@@ -97,6 +97,7 @@ export interface Tenant {
   id: string
   name: string
   slug: string
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -267,7 +268,9 @@ export interface Booking {
   contact_id: string | null
   conversation_id: string | null
   booking_type: BookingType
+  service_id: string | null
   service_name: string | null
+  channel: string | null
   location: string | null
   start_time: string
   end_time: string | null
@@ -285,6 +288,31 @@ export interface Booking {
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string
+}
+
+export interface Service {
+  id: string
+  bot_id: string
+  name: string
+  description: string | null
+  duration_minutes: number
+  buffer_minutes: number
+  max_simultaneous: number
+  price: number | null
+  currency: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface OperatingHoursRow {
+  id: string
+  bot_id: string
+  day_of_week: number      // 0 = Sunday, 6 = Saturday
+  is_open: boolean
+  open_time: string        // 'HH:MM'
+  close_time: string
+  lunch_start: string | null
+  lunch_end: string | null
 }
 
 export interface FacilitiesConfig {

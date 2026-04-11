@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -28,6 +28,8 @@ import {
   Activity,
   UserCheck,
   BarChart3,
+  Menu,
+  X,
 } from 'lucide-react'
 import { BotSwitcher } from './BotSwitcher'
 import { useTranslation } from '@/lib/i18n/provider'
@@ -110,8 +112,27 @@ const SUPER_ADMIN_SECTION: NavSection = {
 
 export function Sidebar({ bots, role }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const pathname = usePathname()
   const { t } = useTranslation()
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setIsMobileOpen(false)
+  }, [pathname])
+
+  // Dismiss mobile drawer on outside click
+  useEffect(() => {
+    if (!isMobileOpen) return
+    function handleClick(e: MouseEvent) {
+      const drawer = document.getElementById('bb-mobile-sidebar')
+      if (drawer && !drawer.contains(e.target as Node)) {
+        setIsMobileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [isMobileOpen])
 
   // Determine current bot from URL
   const botMatch = pathname.match(/\/dashboard\/bots\/([^/]+)/)
@@ -126,16 +147,88 @@ export function Sidebar({ bots, role }: SidebarProps) {
 
   const width = isCollapsed ? 56 : 240
 
+  // Shared nav content used by both desktop sidebar and mobile drawer
+  function NavContent({ collapsed }: { collapsed: boolean }) {
+    return (
+      <>
+        {/* Bot Switcher */}
+        <div className="py-3" style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}>
+          <BotSwitcher bots={bots} isCollapsed={collapsed} />
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+          <NavLink
+            href="/dashboard/overview"
+            icon={LayoutDashboard}
+            label={t('Navigation.overview')}
+            isActive={overviewActive}
+            isCollapsed={collapsed}
+          />
+          {botSections.map((section, i) => (
+            <div key={i} className="mt-4">
+              {section.label && !collapsed && (
+                <p
+                  className="px-3 mb-1 text-xs font-medium uppercase tracking-wider"
+                  style={{ color: 'var(--bb-text-3)' }}
+                >
+                  {section.label}
+                </p>
+              )}
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.key}
+                  href={item.href}
+                  icon={item.icon}
+                  label={t(`Navigation.${item.key}`)}
+                  isActive={isActive(item.href)}
+                  isCollapsed={collapsed}
+                />
+              ))}
+            </div>
+          ))}
+          {role === 'super_admin' && (
+            <div className="mt-4">
+              {!collapsed && (
+                <div className="flex items-center gap-1 px-3 mb-1">
+                  <Crown size={10} style={{ color: 'var(--bb-warning)' }} />
+                  <p
+                    className="text-xs font-medium uppercase tracking-wider"
+                    style={{ color: 'var(--bb-warning)' }}
+                  >
+                    {t('Navigation.superAdmin')}
+                  </p>
+                </div>
+              )}
+              {SUPER_ADMIN_SECTION.items.map((item) => (
+                <NavLink
+                  key={item.key}
+                  href={item.href}
+                  icon={item.icon}
+                  label={t(`Navigation.${item.key}`)}
+                  isActive={isActive(item.href)}
+                  isCollapsed={collapsed}
+                />
+              ))}
+            </div>
+          )}
+        </nav>
+      </>
+    )
+  }
+
   return (
-    <aside
-      className="flex flex-col flex-shrink-0 h-full relative transition-all duration-200"
-      style={{
-        width,
-        minWidth: width,
-        background: 'var(--sidebar)',
-        borderRight: '1px solid var(--bb-border-subtle)',
-      }}
-    >
+    <>
+      {/* ── Desktop sidebar (hidden on mobile) ─────────────────────────── */}
+      <aside
+        className="hidden md:flex flex-col flex-shrink-0 h-full relative transition-all duration-200"
+        style={{
+          width,
+          minWidth: width,
+          background: 'var(--sidebar)',
+          borderRight: '1px solid var(--bb-border-subtle)',
+        }}
+      >
       {/* Logo */}
       <div
         className="flex items-center h-14 flex-shrink-0 px-4"
@@ -163,88 +256,82 @@ export function Sidebar({ bots, role }: SidebarProps) {
         )}
       </div>
 
-      {/* Bot Switcher */}
-      <div className="py-3" style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}>
-        <BotSwitcher bots={bots} isCollapsed={isCollapsed} />
-      </div>
+        <NavContent collapsed={isCollapsed} />
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {/* Overview — always visible */}
-        <NavLink
-          href="/dashboard/overview"
-          icon={LayoutDashboard}
-          label={t('Navigation.overview')}
-          isActive={overviewActive}
-          isCollapsed={isCollapsed}
-        />
+        {/* Collapse toggle */}
+        <div className="p-2 flex-shrink-0" style={{ borderTop: '1px solid var(--bb-border-subtle)' }}>
+          <button
+            className="flex items-center justify-center w-full h-8 rounded-lg transition-colors"
+            style={{ color: 'var(--bb-text-3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-3)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
+      </aside>
 
-        {/* Bot-scoped sections */}
-        {botSections.map((section, i) => (
-          <div key={i} className="mt-4">
-            {section.label && !isCollapsed && (
-              <p
-                className="px-3 mb-1 text-xs font-medium uppercase tracking-wider"
-                style={{ color: 'var(--bb-text-3)' }}
-              >
-                {section.label}
-              </p>
-            )}
-            {section.items.map((item) => (
-              <NavLink
-                key={item.key}
-                href={item.href}
-                icon={item.icon}
-                label={t(`Navigation.${item.key}`)}
-                isActive={isActive(item.href)}
-                isCollapsed={isCollapsed}
-              />
-            ))}
-          </div>
-        ))}
+      {/* ── Mobile hamburger button ──────────────────────────────────────── */}
+      <button
+        className="fixed top-3 left-3 z-50 md:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+        style={{ background: 'var(--bb-surface)', border: '1px solid var(--bb-border)' }}
+        onClick={() => setIsMobileOpen(true)}
+        aria-label="Open navigation menu"
+      >
+        <Menu size={18} style={{ color: 'var(--bb-text-2)' }} />
+      </button>
 
-        {/* Super admin section */}
-        {role === 'super_admin' && (
-          <div className="mt-4">
-            {!isCollapsed && (
-              <div className="flex items-center gap-1 px-3 mb-1">
-                <Crown size={10} style={{ color: 'var(--bb-warning)' }} />
-                <p
-                  className="text-xs font-medium uppercase tracking-wider"
-                  style={{ color: 'var(--bb-warning)' }}
+      {/* ── Mobile drawer overlay ────────────────────────────────────────── */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-40 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(0,0,0,0.6)' }}
+            onClick={() => setIsMobileOpen(false)}
+          />
+          {/* Drawer */}
+          <aside
+            id="bb-mobile-sidebar"
+            className="relative flex flex-col h-full"
+            style={{
+              width: 240,
+              background: 'var(--sidebar)',
+              borderRight: '1px solid var(--bb-border-subtle)',
+            }}
+          >
+            {/* Logo + close button */}
+            <div
+              className="flex items-center justify-between h-14 flex-shrink-0 px-4"
+              style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0"
+                  style={{ background: 'var(--bb-primary)', color: '#fff' }}
                 >
-                  {t('Navigation.superAdmin')}
-                </p>
+                  B
+                </div>
+                <span className="font-semibold text-sm tracking-tight" style={{ color: 'var(--bb-text-1)' }}>
+                  BotBase
+                </span>
               </div>
-            )}
-            {SUPER_ADMIN_SECTION.items.map((item) => (
-              <NavLink
-                key={item.key}
-                href={item.href}
-                icon={item.icon}
-                label={t(`Navigation.${item.key}`)}
-                isActive={isActive(item.href)}
-                isCollapsed={isCollapsed}
-              />
-            ))}
-          </div>
-        )}
-      </nav>
-
-      {/* Collapse toggle */}
-      <div className="p-2 flex-shrink-0" style={{ borderTop: '1px solid var(--bb-border-subtle)' }}>
-        <button
-          className="flex items-center justify-center w-full h-8 rounded-lg transition-colors"
-          style={{ color: 'var(--bb-text-3)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-3)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-      </div>
-    </aside>
+              <button
+                onClick={() => setIsMobileOpen(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                style={{ color: 'var(--bb-text-3)' }}
+                aria-label="Close navigation menu"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <NavContent collapsed={false} />
+          </aside>
+        </div>
+      )}
+    </>
   )
 }
 

@@ -80,6 +80,7 @@ export async function step9Prompt(ctx: PipelineContext): Promise<StepResult> {
       faq_injected: !!ctx.faqResult,
       rag_chunks_injected: ctx.ragChunks.length,
       live_api_injected: !!ctx.liveApiData,
+      system_prompt: systemPrompt,
     },
   }
 }

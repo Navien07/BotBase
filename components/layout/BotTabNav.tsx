@@ -11,9 +11,12 @@ const BOT_TABS = [
   { label: 'Personality', path: '/personality' },
   { label: 'Guardrails', path: '/guardrails' },
   { label: 'Channels', path: '/channels' },
+  { label: 'Broadcasts', path: '/broadcasts' },
   { label: 'API Keys', path: '/api-keys' },
+  { label: 'Scripts', path: '/scripts' },
   { label: 'Integrations', path: '/integrations' },
   { label: 'Testing', path: '/testing' },
+  { label: 'Widget', path: '/widget' },
 ]
 
 export function BotTabNav({ botId }: { botId: string }) {

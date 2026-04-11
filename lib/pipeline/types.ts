@@ -1,4 +1,6 @@
 import type { Bot } from '@/types/database'
+import type { BookingState } from '@/lib/booking/types'
+export type { BookingState }
 
 export interface PipelineContext {
   botId: string
@@ -48,4 +50,3 @@ export interface PipelineResult {
 export interface HistoryTurn { role: 'user' | 'assistant'; content: string }
 export interface FAQResult { question: string; answer: string; similarity: number }
 export interface RAGChunk { id: string; content: string; similarity: number; documentId: string }
-export interface BookingState { step: string; type: string; data: Record<string, unknown> }

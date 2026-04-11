@@ -25,4 +25,17 @@ describe('crypto/tokens', () => {
     expect(maskToken('abc123xyz789')).toBe('••••••••z789')
     expect(maskToken('EAABwzLixnjYBO_TOKEN')).toBe('••••••••OKEN')
   })
+
+  it('tampered ciphertext throws on decrypt', async () => {
+    const plaintext = 'original-secret-value'
+    const ciphertext = await encrypt(plaintext)
+
+    // Tamper: flip the last two hex chars of the encrypted payload
+    const parts = ciphertext.split(':')
+    const lastHex = parts[2]
+    const flipped = lastHex.slice(0, -2) + (lastHex.slice(-2) === '00' ? 'ff' : '00')
+    const tampered = [parts[0], parts[1], flipped].join(':')
+
+    await expect(decrypt(tampered)).rejects.toThrow()
+  })
 })

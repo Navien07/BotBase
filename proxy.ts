@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseServiceClient } from '@supabase/supabase-js'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -52,6 +53,48 @@ export async function proxy(request: NextRequest) {
       redirect.cookies.set(cookie.name, cookie.value)
     })
     return redirect
+  }
+
+  // New authenticated user hitting /dashboard/* → redirect to onboarding if not completed
+  if (user && pathname.startsWith('/dashboard') && !pathname.startsWith('/api')) {
+    try {
+      const serviceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceUrl && serviceKey) {
+        const serviceSupabase = createSupabaseServiceClient(serviceUrl, serviceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+
+        // Fetch tenant_id for this user
+        const { data: profile } = await serviceSupabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.tenant_id) {
+          // Check onboarding completion
+          const { data: progress } = await serviceSupabase
+            .from('onboarding_progress')
+            .select('completed_at')
+            .eq('tenant_id', profile.tenant_id)
+            .single()
+
+          // No row or not completed → redirect to onboarding
+          if (!progress || !progress.completed_at) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/onboarding/create-bot'
+            const redirect = NextResponse.redirect(url)
+            supabaseResponse.cookies.getAll().forEach((cookie) => {
+              redirect.cookies.set(cookie.name, cookie.value)
+            })
+            return redirect
+          }
+        }
+      }
+    } catch {
+      // Never block dashboard access on onboarding check failure
+    }
   }
 
   // Always return supabaseResponse — never return NextResponse.next() directly

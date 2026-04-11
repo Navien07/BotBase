@@ -20,6 +20,7 @@ import {
   Edit2,
 } from 'lucide-react'
 import type { Document, Product } from '@/types/database'
+import { EmptyState } from '@/components/shared/EmptyState'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -557,12 +558,15 @@ export default function KnowledgePage() {
                 <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: 'var(--bb-text-3)' }} />
               </div>
             ) : docs.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-sm" style={{ color: 'var(--bb-text-3)' }}>
-                  No documents yet. Upload a file or scrape a URL above.
-                </p>
-              </div>
+              <EmptyState
+                icon={Upload}
+                title="No documents uploaded"
+                description="Upload a file or scrape a URL to build your knowledge base"
+                actionLabel="Upload Document"
+                onAction={() => fileInputRef.current?.click()}
+              />
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--bb-border)' }}>
@@ -630,6 +634,7 @@ export default function KnowledgePage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
