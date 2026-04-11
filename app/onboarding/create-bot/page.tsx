@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -41,6 +41,18 @@ const PERSONALITIES = [
 
 export default function CreateBotPage() {
   const router = useRouter()
+
+  // Safety net: if tenant already has a bot (created by super admin), skip onboarding
+  useEffect(() => {
+    fetch('/api/bots')
+      .then((r) => r.json())
+      .then((data: { bots?: { id: string }[] }) => {
+        if (data.bots && data.bots.length > 0) {
+          router.replace('/dashboard/overview')
+        }
+      })
+      .catch(() => { /* ignore — let the form render */ })
+  }, [])
 
   const [botName, setBotName] = useState('')
   const [industry, setIndustry] = useState('')

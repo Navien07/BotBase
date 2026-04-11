@@ -28,7 +28,7 @@ export async function GET(request: Request) {
             full_name: (meta?.full_name as string | undefined) ?? user.email ?? '',
           }, { onConflict: 'id' })
 
-          return NextResponse.redirect(`${origin}/onboarding/create-bot`)
+          return NextResponse.redirect(`${origin}/dashboard/overview`)
         }
       }
 

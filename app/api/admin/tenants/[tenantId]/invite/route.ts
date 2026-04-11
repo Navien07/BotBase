@@ -4,7 +4,6 @@ import { z } from 'zod'
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['tenant_admin', 'agent']).default('agent'),
 })
 
 export async function POST(
@@ -20,7 +19,8 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -42,11 +42,9 @@ export async function POST(
     return Response.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { email, role } = parsed.data
+  const { email } = parsed.data
 
   try {
-    const serviceClient = createServiceClient()
-
     // Verify tenant exists
     const { data: tenant, error: tenantError } = await serviceClient
       .from('tenants')
@@ -63,14 +61,24 @@ export async function POST(
       {
         data: {
           tenant_id: tenantId,
-          role,
+          role: 'tenant_admin',
         },
       }
     )
 
     if (inviteError) throw inviteError
 
-    return Response.json({ user: inviteData.user, tenant })
+    // Upsert profile if Supabase returned the user object
+    if (inviteData?.user?.id) {
+      await serviceClient.from('profiles').upsert({
+        id: inviteData.user.id,
+        tenant_id: tenantId,
+        role: 'tenant_admin',
+        full_name: inviteData.user.email ?? email,
+      }, { onConflict: 'id' })
+    }
+
+    return Response.json({ success: true, email })
   } catch (error) {
     console.error('[admin/tenants/[tenantId]/invite POST]', error)
     return Response.json(
