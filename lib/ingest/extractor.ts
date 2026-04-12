@@ -1,10 +1,10 @@
 // Text extraction from PDF, DOCX, TXT files
-// PDF: uses unpdf (serverless-compatible, no DOMMatrix/canvas dependencies)
+// PDF: pdf-parse@1.x (v1 uses old pdfjs-dist with no canvas/DOMMatrix dependency —
+//      proven to work in Vercel serverless Node.js; v2 breaks due to canvas polyfills)
 // DOCX: mammoth
 // TXT/CSV: raw utf-8
 
 import mammoth from 'mammoth'
-import { extractText as unpdfExtractText, getDocumentProxy } from 'unpdf'
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -19,9 +19,10 @@ export function isSupportedMimeType(mimeType: string): boolean {
 
 export async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
-    const pdf = await getDocumentProxy(new Uint8Array(buffer))
-    const { text } = await unpdfExtractText(pdf, { mergePages: true })
-    return text
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require('pdf-parse')
+    const data = await pdfParse(buffer)
+    return data.text
   }
 
   if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
