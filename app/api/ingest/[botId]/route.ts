@@ -43,6 +43,8 @@ export async function POST(
     return Response.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  console.log('[ingest] called', { botId, body })
+
   const parsed = IngestSchema.safeParse(body)
   if (!parsed.success) {
     return Response.json(
@@ -61,7 +63,7 @@ export async function POST(
     const storagePath = `${botId}/${documentId}/${filename}`
 
     // Create document record
-    const { error: insertError } = await service.from('documents').insert({
+    const { data: insertData, error: insertError } = await service.from('documents').insert({
       id: documentId,
       bot_id: botId,
       filename,
@@ -72,10 +74,11 @@ export async function POST(
       ingest_mode: 'chunks',
       status: 'pending',
       chunk_count: 0,
-    })
+    }).select('id')
+
+    console.error('[ingest] step: doc insert', { data: insertData, error: insertError })
 
     if (insertError) {
-      console.error('[ingest POST] insert error', insertError)
       return Response.json({ error: 'Failed to create document record' }, { status: 500 })
     }
 
@@ -84,8 +87,9 @@ export async function POST(
       .from('bot-files')
       .createSignedUploadUrl(storagePath)
 
+    console.error('[ingest] step: storage url', { data: signedData, error: signedError })
+
     if (signedError || !signedData) {
-      console.error('[ingest POST] signed URL error', signedError)
       // Clean up orphaned record
       await service.from('documents').delete().eq('id', documentId)
       return Response.json(
@@ -101,7 +105,7 @@ export async function POST(
       path: storagePath,
     })
   } catch (error) {
-    console.error('[ingest POST]', error)
+    console.error('[ingest] step: uncaught exception', error)
     return Response.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
