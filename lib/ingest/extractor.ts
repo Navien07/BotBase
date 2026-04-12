@@ -1,14 +1,14 @@
 // Text extraction from PDF, DOCX, TXT files
-// PDF: pdf2json — pure CJS parser, no pdfjs-dist dependency, no constructor
-//      mangling issues on Vercel/Turbopack. pdf-parse and unpdf both wrap
-//      pdfjs-dist which gets bundled by Turbopack and breaks ("t is not a
-//      constructor") even with serverExternalPackages.
+//
+// PDF: Anthropic Claude API (document content block) — the only approach that
+//      works reliably on Vercel + Next.js 16 Turbopack. Every npm PDF library
+//      (pdf-parse, unpdf, pdf2json) wraps pdfjs-dist, whose class constructors
+//      get mangled by Turbopack regardless of serverExternalPackages.
+//      Claude Haiku is cheap (~$0.001/page) and only runs once per upload.
 // DOCX: mammoth
 // TXT/CSV: raw utf-8
 
-// pdf2json CJS exports the class as the default export (module.exports = PDFParser)
-// Named import { PDFParser } resolves to undefined — must use default import
-import PDFParser from 'pdf2json'
+import Anthropic from '@anthropic-ai/sdk'
 import mammoth from 'mammoth'
 
 const ALLOWED_MIME_TYPES = new Set([
@@ -22,22 +22,40 @@ export function isSupportedMimeType(mimeType: string): boolean {
   return ALLOWED_MIME_TYPES.has(mimeType)
 }
 
-function parsePdfBuffer(buffer: Buffer): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const parser = new PDFParser(null, true) // needRawText
-    parser.on('pdfParser_dataError', (err) => {
-      reject(err instanceof Error ? err : new Error(String(err)))
-    })
-    parser.on('pdfParser_dataReady', () => {
-      resolve(parser.getRawTextContent())
-    })
-    parser.parseBuffer(buffer)
+async function extractPdfWithClaude(buffer: Buffer): Promise<string> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 8192,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: {
+              type: 'base64',
+              media_type: 'application/pdf',
+              data: buffer.toString('base64'),
+            },
+          },
+          {
+            type: 'text',
+            text: 'Extract and return all the text content from this document. Preserve structure and headings. Return only the extracted text — no commentary, no preamble.',
+          },
+        ],
+      },
+    ],
   })
+
+  const block = response.content.find((b) => b.type === 'text')
+  return block?.type === 'text' ? block.text : ''
 }
 
 export async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
-    return parsePdfBuffer(buffer)
+    return extractPdfWithClaude(buffer)
   }
 
   if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {

@@ -18,6 +18,8 @@ import {
   X,
   Package,
   Edit2,
+  Eye,
+  Download,
 } from 'lucide-react'
 import type { Document, Product } from '@/types/database'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -26,7 +28,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 
 type DocRow = Pick<
   Document,
-  'id' | 'filename' | 'mime_type' | 'category' | 'status' | 'chunk_count' | 'error_message' | 'created_at'
+  'id' | 'filename' | 'mime_type' | 'category' | 'status' | 'chunk_count' | 'error_message' | 'created_at' | 'file_path'
 >
 
 type ProductRow = Pick<
@@ -159,7 +161,7 @@ export default function KnowledgePage() {
   const fetchDocs = useCallback(async () => {
     const { data, error } = await supabase
       .from('documents')
-      .select('id, filename, mime_type, category, status, chunk_count, error_message, created_at')
+      .select('id, filename, mime_type, category, status, chunk_count, error_message, created_at, file_path')
       .eq('bot_id', botId)
       .order('created_at', { ascending: false })
 
@@ -319,19 +321,32 @@ export default function KnowledgePage() {
 
   // ─── Delete document ─────────────────────────────────────────────────────
 
-  async function handleDeleteDoc(id: string) {
-    const { error } = await supabase
-      .from('documents')
-      .delete()
-      .eq('id', id)
-      .eq('bot_id', botId)
+  async function handleDeleteDoc(id: string, filename: string) {
+    if (!confirm(`Delete "${filename}"? This will remove the file and all indexed chunks.`)) return
 
-    if (error) {
-      toast.error('Failed to delete document')
+    const res = await fetch(`/api/ingest/${botId}/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Delete failed' }))
+      toast.error(err.error ?? 'Failed to delete document')
       return
     }
     toast.success('Document deleted')
     setDocs((prev) => prev.filter((d) => d.id !== id))
+  }
+
+  // ─── Preview document ─────────────────────────────────────────────────────
+
+  async function handlePreview(id: string, mimeType: string | null, category: string) {
+    if (category === 'url') return // URL docs have no file
+
+    try {
+      const res = await fetch(`/api/ingest/${botId}/${id}/preview`)
+      if (!res.ok) throw new Error('Preview unavailable')
+      const { url } = await res.json()
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch {
+      toast.error('Could not open preview')
+    }
   }
 
   // ─── Product CRUD ─────────────────────────────────────────────────────────
@@ -622,13 +637,28 @@ export default function KnowledgePage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleDeleteDoc(doc.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
-                          title="Delete document"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--bb-text-3)' }} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {doc.category !== 'url' && doc.file_path && (
+                            <button
+                              onClick={() => handlePreview(doc.id, doc.mime_type, doc.category)}
+                              className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                              title={doc.mime_type === 'application/pdf' ? 'Preview PDF' : 'Download file'}
+                            >
+                              {doc.mime_type === 'application/pdf' ? (
+                                <Eye className="w-3.5 h-3.5" style={{ color: 'var(--bb-text-3)' }} />
+                              ) : (
+                                <Download className="w-3.5 h-3.5" style={{ color: 'var(--bb-text-3)' }} />
+                              )}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteDoc(doc.id, doc.filename)}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                            title="Delete document"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--bb-text-3)' }} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
