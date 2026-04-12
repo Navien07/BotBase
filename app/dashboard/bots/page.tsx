@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import { Plus, Bot, Wifi, MessageSquare } from 'lucide-react'
+import { Plus, Bot } from 'lucide-react'
 import { isSuperAdminEmail } from '@/lib/auth/super-admin'
+import { BotCard } from './bot-card'
 
 export default async function BotsPage() {
   const supabase = await createClient()
@@ -28,6 +29,7 @@ export default async function BotsPage() {
     default_language: string
     created_at: string
     tenantName?: string
+    tenant_id?: string
   }
 
   let bots: BotRow[] = []
@@ -35,7 +37,7 @@ export default async function BotsPage() {
   if (isSuperAdmin) {
     const { data } = await serviceClient
       .from('bots')
-      .select('id, name, slug, is_active, default_language, created_at, tenants(name)')
+      .select('id, name, slug, is_active, default_language, created_at, tenant_id, tenants(name)')
       .order('created_at', { ascending: false })
     bots = (data ?? []).map((b) => {
       const t = b.tenants
@@ -45,7 +47,7 @@ export default async function BotsPage() {
   } else if (profile?.tenant_id) {
     const { data } = await supabase
       .from('bots')
-      .select('id, name, slug, is_active, default_language, created_at')
+      .select('id, name, slug, is_active, default_language, created_at, tenant_id')
       .eq('tenant_id', profile.tenant_id)
       .order('created_at', { ascending: true })
     bots = (data ?? []).map((b) => ({ ...b, tenantName: undefined }))
@@ -106,58 +108,7 @@ export default async function BotsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {bots.map((bot) => (
-            <Link
-              key={bot.id}
-              href={`/dashboard/bots/${bot.id}/overview`}
-              className="rounded-xl border border-[var(--bb-border)] hover:border-[var(--bb-primary)] p-5 flex flex-col gap-4 transition-colors block"
-              style={{ background: 'var(--bb-surface)' }}
-            >
-              <div className="flex items-start justify-between">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'var(--bb-primary-subtle)' }}
-                >
-                  <Bot size={20} style={{ color: 'var(--bb-primary)' }} />
-                </div>
-                <span
-                  className="text-xs px-2 py-0.5 rounded-full font-medium"
-                  style={{
-                    background: bot.is_active ? 'rgba(34,197,94,0.1)' : 'var(--bb-surface-3)',
-                    color: bot.is_active ? 'var(--bb-success)' : 'var(--bb-text-3)',
-                  }}
-                >
-                  {bot.is_active ? '● Live' : '○ Inactive'}
-                </span>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-sm" style={{ color: 'var(--bb-text-1)' }}>
-                  {bot.name}
-                </h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
-                  {bot.slug} · {bot.default_language.toUpperCase()}
-                </p>
-                {isSuperAdmin && bot.tenantName && (
-                  <span
-                    className="inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: 'var(--bb-surface-3)', color: 'var(--bb-text-3)' }}
-                  >
-                    {bot.tenantName}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 mt-auto">
-                <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--bb-text-3)' }}>
-                  <Wifi size={12} />
-                  Channels
-                </span>
-                <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--bb-text-3)' }}>
-                  <MessageSquare size={12} />
-                  Conversations
-                </span>
-              </div>
-            </Link>
+            <BotCard key={bot.id} bot={bot} isSuperAdmin={isSuperAdmin} />
           ))}
         </div>
       )}

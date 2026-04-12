@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -8,6 +8,7 @@ import { Bot, Mail, Lock, Globe } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
+  const supabase = createClient()
 
   const [mode, setMode] = useState<'password' | 'magic'>('password')
   const [email, setEmail] = useState('')
@@ -15,10 +16,31 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
 
+  // Handle invite and recovery magic links (hash-based tokens)
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash.includes('access_token')) return
+
+    const params = new URLSearchParams(hash.substring(1))
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type = params.get('type')
+
+    if ((type === 'invite' || type === 'recovery') && accessToken && refreshToken) {
+      supabase.auth
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data, error }) => {
+          if (data.user && !error) {
+            window.location.href = '/auth/set-password'
+          }
+        })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await createClient().auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
       toast.error(error.message)
@@ -32,7 +54,7 @@ export default function LoginPage() {
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await createClient().auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${location.origin}/auth/callback` },
     })
@@ -46,7 +68,7 @@ export default function LoginPage() {
 
   async function handleGoogleSSO() {
     setLoading(true)
-    const { error } = await createClient().auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${location.origin}/auth/callback` },
     })
