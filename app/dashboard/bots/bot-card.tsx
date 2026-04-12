@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bot, Wifi, MessageSquare, MoreVertical, Settings, Mail, UserPlus } from 'lucide-react'
+import { Bot, Wifi, MessageSquare, MoreVertical, Settings, Mail, UserPlus, Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface BotCardBot {
@@ -24,9 +24,12 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLoading, setInviteLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -53,6 +56,23 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
       toast.error(err instanceof Error ? err.message : 'Failed to send reset')
     } finally {
       setResetLoading(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!bot.tenant_id) return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`/api/admin/tenants/${bot.tenant_id}`, { method: 'DELETE' })
+      const json = await res.json() as { error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Failed')
+      toast.success(`${bot.tenantName ?? bot.name} deleted permanently`)
+      setShowDeleteModal(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -152,6 +172,15 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
                       <UserPlus size={14} style={{ flexShrink: 0 }} />
                       Add Another Admin
                     </button>
+                    <div style={{ borderTop: '1px solid var(--bb-border-subtle)' }} />
+                    <button
+                      onClick={() => { setMenuOpen(false); setDeleteConfirm(''); setShowDeleteModal(true) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-[rgba(239,68,68,0.08)] transition-colors text-left"
+                      style={{ color: 'var(--bb-danger)' }}
+                    >
+                      <Trash2 size={14} style={{ flexShrink: 0 }} />
+                      Delete Client
+                    </button>
                   </div>
                 )}
               </div>
@@ -247,6 +276,110 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)' }}
+          onClick={() => !deleteLoading && setShowDeleteModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border p-6 space-y-5"
+            style={{ background: 'var(--bb-surface)', borderColor: 'rgba(239,68,68,0.3)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(239,68,68,0.1)' }}
+              >
+                <AlertTriangle size={20} style={{ color: 'var(--bb-danger)' }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>
+                  Delete {bot.tenantName ?? bot.name}?
+                </h3>
+                <p className="text-sm mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
+                  This action is permanent and cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* What gets deleted */}
+            <div
+              className="rounded-lg p-4 space-y-1.5 text-sm"
+              style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}
+            >
+              <p className="font-medium mb-2" style={{ color: 'var(--bb-danger)' }}>
+                The following will be permanently erased:
+              </p>
+              {[
+                'Tenant account & all admin users',
+                `Bot: ${bot.name} and all configuration`,
+                'All conversations & messages',
+                'All contacts & bookings',
+                'All documents & knowledge base',
+                'All broadcasts & analytics',
+                'All channel connections',
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2" style={{ color: 'var(--bb-text-2)' }}>
+                  <span style={{ color: 'var(--bb-danger)', fontSize: 10 }}>✕</span>
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            {/* Confirm by typing tenant name */}
+            <div className="space-y-2">
+              <p className="text-sm" style={{ color: 'var(--bb-text-2)' }}>
+                Type <span className="font-mono font-semibold" style={{ color: 'var(--bb-text-1)' }}>
+                  {bot.tenantName ?? bot.name}
+                </span> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder={bot.tenantName ?? bot.name}
+                autoFocus
+                disabled={deleteLoading}
+                className="w-full px-3 py-2.5 rounded-lg text-sm disabled:opacity-50"
+                style={{
+                  background: 'var(--bb-surface-2)',
+                  border: '1px solid var(--bb-border)',
+                  color: 'var(--bb-text-1)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--bb-danger)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--bb-border)' }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleteLoading}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+                style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)', color: 'var(--bb-text-2)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteLoading || deleteConfirm !== (bot.tenantName ?? bot.name)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity"
+                style={{ background: 'var(--bb-danger)', color: '#fff' }}
+              >
+                {deleteLoading ? 'Deleting…' : 'Delete Client'}
+              </button>
+            </div>
           </div>
         </div>
       )}

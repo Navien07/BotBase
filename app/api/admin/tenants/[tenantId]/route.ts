@@ -2,6 +2,100 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 
+// ─── DELETE — permanently erase tenant, bots, all data, all users ─────────────
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ tenantId: string }> }
+) {
+  const { tenantId } = await params
+  if (!tenantId) return Response.json({ error: 'Missing tenantId' }, { status: 400 })
+
+  // Verify super_admin
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const serviceClient = createServiceClient()
+  const { data: callerProfile } = await serviceClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!callerProfile || callerProfile.role !== 'super_admin') {
+    return Response.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  try {
+    // 1. Get all bot IDs for this tenant
+    const { data: bots } = await serviceClient
+      .from('bots')
+      .select('id')
+      .eq('tenant_id', tenantId)
+
+    const botIds = (bots ?? []).map((b) => b.id)
+
+    // 2. Collect document file paths for storage cleanup
+    if (botIds.length > 0) {
+      const { data: docs } = await serviceClient
+        .from('documents')
+        .select('file_path')
+        .in('bot_id', botIds)
+
+      const filePaths = (docs ?? []).map((d) => d.file_path).filter(Boolean)
+      if (filePaths.length > 0) {
+        // Best-effort — don't fail the whole operation if storage delete errors
+        await serviceClient.storage.from('bot-files').remove(filePaths).catch((e) => {
+          console.error('[tenant DELETE] storage cleanup error', e)
+        })
+      }
+
+      // 3. Delete agent_sessions — no ON DELETE CASCADE from bots, must be manual
+      await serviceClient
+        .from('agent_sessions')
+        .delete()
+        .in('bot_id', botIds)
+    }
+
+    // 4. Get all auth user IDs for this tenant (from profiles)
+    const { data: tenantProfiles } = await serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('tenant_id', tenantId)
+
+    const userIds = (tenantProfiles ?? []).map((p) => p.id)
+
+    // 5. Delete each auth user — cascades: profiles, agent_profiles
+    for (const userId of userIds) {
+      const { error } = await serviceClient.auth.admin.deleteUser(userId)
+      if (error) {
+        console.error(`[tenant DELETE] failed to delete auth user ${userId}:`, error)
+      }
+    }
+
+    // 6. Delete the tenant — cascades: tenant_invites, onboarding_progress, bots
+    //    bots cascade: documents, chunks, faqs, products, conversations→messages,
+    //    contacts→bookings, channel_configs, api_keys, response_templates,
+    //    bot_scripts→versions, broadcast_campaigns→recipients, drip_sequences,
+    //    agent_profiles, followup_rules→queue, widget_configs, facilities_config
+    const { error: tenantDeleteError } = await serviceClient
+      .from('tenants')
+      .delete()
+      .eq('id', tenantId)
+
+    if (tenantDeleteError) throw tenantDeleteError
+
+    return Response.json({ success: true })
+  } catch (error) {
+    console.error('[admin/tenants/[tenantId] DELETE]', error)
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 const patchSchema = z.object({
   is_active: z.boolean(),
 })
