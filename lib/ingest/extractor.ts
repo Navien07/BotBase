@@ -21,7 +21,7 @@ export function isSupportedMimeType(mimeType: string): boolean {
 
 export async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
-    const { text } = await unpdfExtractText(buffer, { mergePages: true })
+    const { text } = await unpdfExtractText(new Uint8Array(buffer), { mergePages: true })
     return text
   }
 
