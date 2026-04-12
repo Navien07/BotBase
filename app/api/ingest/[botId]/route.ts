@@ -88,7 +88,10 @@ export async function POST(
       console.error('[ingest POST] signed URL error', signedError)
       // Clean up orphaned record
       await service.from('documents').delete().eq('id', documentId)
-      return Response.json({ error: 'Failed to create upload URL' }, { status: 500 })
+      return Response.json(
+        { error: `Failed to create upload URL: ${signedError?.message ?? 'unknown storage error'}` },
+        { status: 500 }
+      )
     }
 
     return Response.json({
