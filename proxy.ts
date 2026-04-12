@@ -32,6 +32,13 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Auth pages handle their own token exchange — never redirect them
+  // /auth/set-password receives tokens as URL hash (client-side only), so the
+  // server cannot see a session at this point. Let the page handle it.
+  if (pathname.startsWith('/auth/')) {
+    return supabaseResponse
+  }
+
   // Authenticated user hitting /login → send to dashboard
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
