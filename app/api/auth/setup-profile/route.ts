@@ -6,22 +6,32 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const meta = user.user_metadata
-  const tenantId = meta?.tenant_id as string | undefined
-  const role = (meta?.role as string | undefined) ?? 'tenant_admin'
-
-  if (!tenantId) return Response.json({ skipped: true })
-
   try {
     const serviceClient = createServiceClient()
+
+    // Get existing profile first — preserve any valid tenant_id already set by the invite flow.
+    // Recovery links do NOT carry tenant_id in user_metadata, so we must never overwrite
+    // an existing valid tenant_id with null from metadata.
+    const { data: existingProfile } = await serviceClient
+      .from('profiles')
+      .select('tenant_id, role')
+      .eq('id', user.id)
+      .single()
+
+    const metaTenantId = (user.user_metadata?.tenant_id as string | undefined) ?? null
+    const metaRole = (user.user_metadata?.role as string | undefined) ?? 'tenant_admin'
+
+    const tenant_id = existingProfile?.tenant_id ?? metaTenantId
+    const role = existingProfile?.role ?? metaRole
+
     await serviceClient.from('profiles').upsert({
       id: user.id,
-      tenant_id: tenantId,
+      tenant_id,
       role,
-      full_name: (meta?.full_name as string | undefined) ?? user.email ?? '',
-    }, { onConflict: 'id' })
+      full_name: (user.user_metadata?.full_name as string | undefined) ?? user.email ?? '',
+    }, { onConflict: 'id', ignoreDuplicates: false })
 
-    return Response.json({ success: true })
+    return Response.json({ success: true, tenant_id, role })
   } catch (error) {
     console.error('[auth/setup-profile POST]', error)
     return Response.json(

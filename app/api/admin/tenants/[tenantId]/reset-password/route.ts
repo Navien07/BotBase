@@ -66,6 +66,13 @@ export async function POST(
       return Response.json({ error: 'This email is not an admin for this client' }, { status: 404 })
     }
 
+    // Ensure profile is pinned to this tenant before sending reset link
+    await serviceClient.from('profiles').upsert({
+      id: targetUser.id,
+      tenant_id: tenantId,
+      role: 'tenant_admin',
+    }, { onConflict: 'id', ignoreDuplicates: false })
+
     // Generate password reset link via admin API (bypasses unreliable Supabase SMTP)
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: 'recovery',
