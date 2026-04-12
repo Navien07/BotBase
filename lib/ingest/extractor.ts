@@ -1,14 +1,12 @@
 // Text extraction from PDF, DOCX, TXT files
-// PDF: pdf-parse@1.x — static top-level import so Turbopack's serverExternalPackages
-//      can statically analyze and exclude it from the bundle. Dynamic require() inside
-//      function bodies bypasses static analysis and causes Turbopack to bundle the module,
-//      which mangles class constructors ("t is not a constructor"). v1 uses old pdfjs-dist
-//      with no canvas/DOMMatrix dependency so top-level import is safe.
+// PDF: unpdf — ESM-native, works cleanly in Vercel/Turbopack serverless without
+//      constructor mangling. pdf-parse@1.x caused "t is not a constructor" on Vercel
+//      even with serverExternalPackages because pdfjs-dist internals get bundled.
 // DOCX: mammoth
 // TXT/CSV: raw utf-8
 
 import mammoth from 'mammoth'
-import pdfParse from 'pdf-parse'
+import { extractText as unpdfExtractText } from 'unpdf'
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -23,8 +21,8 @@ export function isSupportedMimeType(mimeType: string): boolean {
 
 export async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
-    const data = await pdfParse(buffer)
-    return data.text
+    const { text } = await unpdfExtractText(buffer, { mergePages: true })
+    return text
   }
 
   if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
