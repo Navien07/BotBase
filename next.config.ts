@@ -9,7 +9,7 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['voyageai', 'pdf-parse', 'unpdf', 'mammoth', 'sharp', 'cheerio'],
+  serverExternalPackages: ['voyageai', 'pdf-parse', 'unpdf', 'pdf2json', 'mammoth', 'sharp', 'cheerio'],
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '*.supabase.co' }],
   },

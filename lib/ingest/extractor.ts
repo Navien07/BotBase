@@ -1,12 +1,13 @@
 // Text extraction from PDF, DOCX, TXT files
-// PDF: unpdf — ESM-native, works cleanly in Vercel/Turbopack serverless without
-//      constructor mangling. pdf-parse@1.x caused "t is not a constructor" on Vercel
-//      even with serverExternalPackages because pdfjs-dist internals get bundled.
+// PDF: pdf2json — pure CJS parser, no pdfjs-dist dependency, no constructor
+//      mangling issues on Vercel/Turbopack. pdf-parse and unpdf both wrap
+//      pdfjs-dist which gets bundled by Turbopack and breaks ("t is not a
+//      constructor") even with serverExternalPackages.
 // DOCX: mammoth
 // TXT/CSV: raw utf-8
 
+import { PDFParser } from 'pdf2json'
 import mammoth from 'mammoth'
-import { extractText as unpdfExtractText } from 'unpdf'
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -19,10 +20,22 @@ export function isSupportedMimeType(mimeType: string): boolean {
   return ALLOWED_MIME_TYPES.has(mimeType)
 }
 
+function parsePdfBuffer(buffer: Buffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser(null, true) // needRawText
+    parser.on('pdfParser_dataError', (err) => {
+      reject(err instanceof Error ? err : new Error(String(err)))
+    })
+    parser.on('pdfParser_dataReady', () => {
+      resolve(parser.getRawTextContent())
+    })
+    parser.parseBuffer(buffer)
+  })
+}
+
 export async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
-    const { text } = await unpdfExtractText(new Uint8Array(buffer), { mergePages: true })
-    return text
+    return parsePdfBuffer(buffer)
   }
 
   if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
