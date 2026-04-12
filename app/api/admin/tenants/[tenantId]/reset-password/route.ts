@@ -68,12 +68,13 @@ export async function POST(
     // Send password reset
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/login`,
+      redirectTo: `${appUrl}/auth/set-password`,
     })
+    console.log('resetPasswordForEmail result:', { email, error: resetError?.message ?? null })
 
-    if (resetError) throw resetError
+    if (resetError) return Response.json({ error: resetError.message }, { status: 400 })
 
-    return Response.json({ success: true, email })
+    return Response.json({ success: true, emailsSent: 1, email })
   } catch (error) {
     console.error('[admin/tenants/[tenantId]/reset-password POST]', error)
     return Response.json(

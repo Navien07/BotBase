@@ -45,7 +45,7 @@ export default async function BotsPage() {
       return { ...b, tenants: undefined, tenantName }
     })
   } else if (profile?.tenant_id) {
-    const { data } = await supabase
+    const { data } = await serviceClient
       .from('bots')
       .select('id, name, slug, is_active, default_language, created_at, tenant_id')
       .eq('tenant_id', profile.tenant_id)
@@ -87,12 +87,12 @@ export default async function BotsPage() {
             <Bot size={28} style={{ color: 'var(--bb-primary)' }} />
           </div>
           <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--bb-text-1)' }}>
-            {isSuperAdmin ? 'No clients yet' : 'Awaiting bot setup'}
+            {isSuperAdmin ? 'No clients yet' : 'Your bot is being set up'}
           </h3>
           <p className="text-sm mb-6 text-center max-w-sm" style={{ color: 'var(--bb-text-3)' }}>
             {isSuperAdmin
               ? 'Create your first client and bot to get started'
-              : 'Your bot is being configured by the Iceberg AI team. Contact us at navien@icebergaisolutions.com if you need assistance.'}
+              : 'Your AI chatbot is being configured by the Iceberg AI team. It will appear here once ready. Contact navien@icebergaisolutions.com if you need assistance.'}
           </p>
           {isSuperAdmin && (
             <Link

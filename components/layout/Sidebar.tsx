@@ -105,7 +105,6 @@ function getBotNavSections(botId: string): NavSection[] {
 const SUPER_ADMIN_SECTION: NavSection = {
   label: 'Super Admin',
   items: [
-    { key: 'allTenants', icon: Building2, href: '/dashboard/admin/tenants' },
     { key: 'botsMonitor', icon: Activity, href: '/dashboard/admin/bots' },
     { key: 'users', icon: UserCheck, href: '/dashboard/admin/users' },
     { key: 'billing', icon: BarChart3, href: '/dashboard/admin/billing' },
@@ -180,10 +179,19 @@ export function Sidebar({ bots, role }: SidebarProps) {
           <NavLink
             href="/dashboard/bots"
             icon={BotIcon}
-            label={t('Navigation.bots')}
+            label={role === 'super_admin' ? 'All Bots' : t('Navigation.bots')}
             isActive={botsActive}
             isCollapsed={collapsed}
           />
+          {role === 'super_admin' && (
+            <NavLink
+              href="/dashboard/admin/tenants"
+              icon={Building2}
+              label={t('Navigation.allTenants')}
+              isActive={isActive('/dashboard/admin/tenants')}
+              isCollapsed={collapsed}
+            />
+          )}
           {botSections.map((section, i) => (
             <div key={i} className="mt-4">
               {section.label && !collapsed && (

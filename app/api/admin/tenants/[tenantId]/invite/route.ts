@@ -63,18 +63,19 @@ export async function POST(
     )
 
     if (existingUser) {
-      // Existing user — link their profile to this tenant and send password reset
+      // Existing user — link their profile to THIS tenant and send password reset
       await serviceClient.from('profiles').upsert({
         id: existingUser.id,
         tenant_id: tenantId,
         role: 'tenant_admin',
         full_name: (existingUser.user_metadata?.full_name as string | undefined) ?? existingUser.email ?? email,
-      }, { onConflict: 'id' })
+      }, { onConflict: 'id', ignoreDuplicates: false })
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${appUrl}/login`,
+        redirectTo: `${appUrl}/auth/set-password`,
       })
+      console.log('invite/reset result:', { email, type: 'password_reset', error: resetError?.message ?? null })
       if (resetError) throw resetError
 
       return Response.json({ success: true, email, type: 'password_reset' })
@@ -90,6 +91,7 @@ export async function POST(
         },
       }
     )
+    console.log('invite/reset result:', { email, type: 'invite', error: inviteError?.message ?? null })
 
     if (inviteError) throw inviteError
 
@@ -99,7 +101,7 @@ export async function POST(
         tenant_id: tenantId,
         role: 'tenant_admin',
         full_name: inviteData.user.email ?? email,
-      }, { onConflict: 'id' })
+      }, { onConflict: 'id', ignoreDuplicates: false })
     }
 
     return Response.json({ success: true, email, type: 'invite' })
