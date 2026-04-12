@@ -56,6 +56,31 @@ export async function POST(
       return Response.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
+    // Check if this email already has an auth account
+    const { data: usersData } = await serviceClient.auth.admin.listUsers({ perPage: 1000 })
+    const existingUser = usersData?.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    )
+
+    if (existingUser) {
+      // Existing user — link their profile to this tenant and send password reset
+      await serviceClient.from('profiles').upsert({
+        id: existingUser.id,
+        tenant_id: tenantId,
+        role: 'tenant_admin',
+        full_name: (existingUser.user_metadata?.full_name as string | undefined) ?? existingUser.email ?? email,
+      }, { onConflict: 'id' })
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${appUrl}/login`,
+      })
+      if (resetError) throw resetError
+
+      return Response.json({ success: true, email, type: 'password_reset' })
+    }
+
+    // New user — send invite
     const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
       email,
       {
@@ -68,7 +93,6 @@ export async function POST(
 
     if (inviteError) throw inviteError
 
-    // Upsert profile if Supabase returned the user object
     if (inviteData?.user?.id) {
       await serviceClient.from('profiles').upsert({
         id: inviteData.user.id,
@@ -78,7 +102,7 @@ export async function POST(
       }, { onConflict: 'id' })
     }
 
-    return Response.json({ success: true, email })
+    return Response.json({ success: true, email, type: 'invite' })
   } catch (error) {
     console.error('[admin/tenants/[tenantId]/invite POST]', error)
     return Response.json(

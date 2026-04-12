@@ -138,18 +138,38 @@ export async function POST(req: Request) {
 
     if (tenantError) throw tenantError
 
-    // Invite user via Supabase auth admin API
-    const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-      adminEmail,
-      {
-        data: {
-          tenant_id: tenant.id,
-          role: 'tenant_admin',
-        },
-      }
+    // Smart invite: check if email already has an auth account
+    const { data: usersData } = await serviceClient.auth.admin.listUsers({ perPage: 1000 })
+    const existingUser = usersData?.users.find(
+      (u) => u.email?.toLowerCase() === adminEmail.toLowerCase()
     )
 
-    if (inviteError) throw inviteError
+    let inviteType: 'invite' | 'password_reset'
+
+    if (existingUser) {
+      // Existing user — link to new tenant + send password reset
+      await serviceClient.from('profiles').upsert({
+        id: existingUser.id,
+        tenant_id: tenant.id,
+        role: 'tenant_admin',
+        full_name: (existingUser.user_metadata?.full_name as string | undefined) ?? existingUser.email ?? adminEmail,
+      }, { onConflict: 'id' })
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(adminEmail, {
+        redirectTo: `${appUrl}/login`,
+      })
+      if (resetError) throw resetError
+      inviteType = 'password_reset'
+    } else {
+      // New user — send invite
+      const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
+        adminEmail,
+        { data: { tenant_id: tenant.id, role: 'tenant_admin' } }
+      )
+      if (inviteError) throw inviteError
+      inviteType = 'invite'
+    }
 
     // Re-lock the caller's super_admin profile in case inviteUserByEmail
     // overwrote raw_user_meta_data and triggered a profile update
@@ -159,7 +179,7 @@ export async function POST(req: Request) {
       .eq('id', user.id)
       .eq('role', 'super_admin') // only fires if they were already super_admin
 
-    return Response.json({ tenant, inviteSent: true }, { status: 201 })
+    return Response.json({ tenant, inviteSent: true, inviteType }, { status: 201 })
   } catch (error) {
     console.error('[admin/tenants POST]', error)
     return Response.json(

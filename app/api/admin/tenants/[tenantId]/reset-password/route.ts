@@ -1,8 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { z } from 'zod'
+
+const resetSchema = z.object({
+  email: z.string().email(),
+})
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ tenantId: string }> }
 ) {
   const { tenantId } = await params
@@ -24,36 +29,51 @@ export async function POST(
     return Response.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  let body: unknown
   try {
-    // Get all tenant admin profile IDs
-    const { data: adminProfiles, error: profilesError } = await serviceClient
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const parsed = resetSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid email address' }, { status: 400 })
+  }
+
+  const { email } = parsed.data
+
+  try {
+    // Find the user by email
+    const { data: usersData } = await serviceClient.auth.admin.listUsers({ perPage: 1000 })
+    const targetUser = usersData?.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    )
+
+    if (!targetUser) {
+      return Response.json({ error: 'No account found with that email address' }, { status: 404 })
+    }
+
+    // Verify they're actually an admin for this tenant
+    const { data: targetProfile } = await serviceClient
       .from('profiles')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('role', 'tenant_admin')
+      .select('role, tenant_id')
+      .eq('id', targetUser.id)
+      .single()
 
-    if (profilesError) throw profilesError
-    if (!adminProfiles || adminProfiles.length === 0) {
-      return Response.json({ error: 'No admins found for this tenant' }, { status: 404 })
+    if (!targetProfile || targetProfile.tenant_id !== tenantId) {
+      return Response.json({ error: 'This email is not an admin for this client' }, { status: 404 })
     }
 
+    // Send password reset
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
-    let emailsSent = 0
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${appUrl}/login`,
+    })
 
-    for (const adminProfile of adminProfiles) {
-      // Get email from auth.users
-      const { data: authUser, error: userError } = await serviceClient.auth.admin.getUserById(adminProfile.id)
-      if (userError || !authUser?.user?.email) continue
+    if (resetError) throw resetError
 
-      // Send password reset — redirects to /login where the hash is intercepted
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        authUser.user.email,
-        { redirectTo: `${appUrl}/login` }
-      )
-      if (!resetError) emailsSent++
-    }
-
-    return Response.json({ success: true, emailsSent })
+    return Response.json({ success: true, email })
   } catch (error) {
     console.error('[admin/tenants/[tenantId]/reset-password POST]', error)
     return Response.json(

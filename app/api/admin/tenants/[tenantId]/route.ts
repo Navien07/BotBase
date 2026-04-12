@@ -28,7 +28,14 @@ export async function DELETE(
   }
 
   try {
-    // 1. Get all bot IDs for this tenant
+    // 1. Get tenant name + all bot IDs
+    const { data: tenantRow } = await serviceClient
+      .from('tenants')
+      .select('name')
+      .eq('id', tenantId)
+      .single()
+    const tenantName = tenantRow?.name ?? tenantId
+
     const { data: bots } = await serviceClient
       .from('bots')
       .select('id')
@@ -58,7 +65,7 @@ export async function DELETE(
         .in('bot_id', botIds)
     }
 
-    // 4. Get all auth user IDs for this tenant (from profiles)
+    // 4. Get all auth user IDs + emails for this tenant (from profiles)
     const { data: tenantProfiles } = await serviceClient
       .from('profiles')
       .select('id')
@@ -66,8 +73,12 @@ export async function DELETE(
 
     const userIds = (tenantProfiles ?? []).map((p) => p.id)
 
-    // 5. Delete each auth user — cascades: profiles, agent_profiles
+    // 5. Collect emails + delete each auth user — cascades: profiles, agent_profiles
+    const deletedEmails: string[] = []
     for (const userId of userIds) {
+      const { data: authUser } = await serviceClient.auth.admin.getUserById(userId)
+      if (authUser?.user?.email) deletedEmails.push(authUser.user.email)
+
       const { error } = await serviceClient.auth.admin.deleteUser(userId)
       if (error) {
         console.error(`[tenant DELETE] failed to delete auth user ${userId}:`, error)
@@ -86,7 +97,14 @@ export async function DELETE(
 
     if (tenantDeleteError) throw tenantDeleteError
 
-    return Response.json({ success: true })
+    return Response.json({
+      success: true,
+      deleted: {
+        tenant: tenantName,
+        bots: botIds.length,
+        users: deletedEmails,
+      },
+    })
   } catch (error) {
     console.error('[admin/tenants/[tenantId] DELETE]', error)
     return Response.json(

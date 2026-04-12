@@ -23,14 +23,25 @@ interface BotCardProps {
 export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Reset password modal
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetSuccess, setResetSuccess] = useState('')
+  const [resetError, setResetError] = useState('')
+
+  // Invite modal
   const [showInviteModal, setShowInviteModal] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLoading, setInviteLoading] = useState(false)
-  const [resetLoading, setResetLoading] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState('')
+
+  // Delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -43,19 +54,54 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [menuOpen])
 
-  async function handleReset() {
-    setMenuOpen(false)
+  async function handleResetSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!resetEmail.trim()) return
     setResetLoading(true)
+    setResetError('')
+    setResetSuccess('')
     try {
-      const res = await fetch(`/api/admin/tenants/${bot.tenant_id}/reset-password`, { method: 'POST' })
-      const json = await res.json() as { emailsSent?: number; error?: string }
+      const res = await fetch(`/api/admin/tenants/${bot.tenant_id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail.trim() }),
+      })
+      const json = await res.json() as { error?: string }
       if (!res.ok) throw new Error(json.error ?? 'Failed')
-      const count = json.emailsSent ?? 0
-      toast.success(`Password reset sent to ${count} admin${count !== 1 ? 's' : ''}`)
+      setResetSuccess(`Password reset sent to ${resetEmail.trim()}`)
+      setResetEmail('')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send reset')
+      setResetError(err instanceof Error ? err.message : 'Failed to send reset')
     } finally {
       setResetLoading(false)
+    }
+  }
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault()
+    if (!inviteEmail.trim()) return
+    setInviteLoading(true)
+    setInviteSuccess('')
+    try {
+      const res = await fetch(`/api/admin/tenants/${bot.tenant_id}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      })
+      const json = await res.json() as { type?: string; error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Failed')
+
+      const sentEmail = inviteEmail.trim()
+      setInviteSuccess(
+        json.type === 'password_reset'
+          ? `This email already has an account. Password reset link sent to ${sentEmail}`
+          : `Invite sent to ${sentEmail}`
+      )
+      setInviteEmail('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send invite')
+    } finally {
+      setInviteLoading(false)
     }
   }
 
@@ -76,27 +122,7 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
     }
   }
 
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (!inviteEmail.trim()) return
-    setInviteLoading(true)
-    try {
-      const res = await fetch(`/api/admin/tenants/${bot.tenant_id}/invite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim() }),
-      })
-      const json = await res.json() as { error?: string }
-      if (!res.ok) throw new Error(json.error ?? 'Failed')
-      toast.success(`Invite sent to ${inviteEmail.trim()}`)
-      setInviteEmail('')
-      setShowInviteModal(false)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send invite')
-    } finally {
-      setInviteLoading(false)
-    }
-  }
+  const clientLabel = bot.tenantName ?? bot.name
 
   return (
     <>
@@ -126,15 +152,10 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
             </span>
 
             {isSuperAdmin && bot.tenant_id && (
-              <div
-                ref={menuRef}
-                className="relative"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div ref={menuRef} className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => setMenuOpen((v) => !v)}
-                  disabled={resetLoading}
-                  className="w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-[var(--bb-surface-3)] disabled:opacity-50"
+                  className="w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-[var(--bb-surface-3)]"
                   style={{ color: 'var(--bb-text-3)' }}
                   title="More actions"
                 >
@@ -156,7 +177,7 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
                     </button>
                     <div style={{ borderTop: '1px solid var(--bb-border-subtle)' }} />
                     <button
-                      onClick={handleReset}
+                      onClick={() => { setMenuOpen(false); setResetEmail(''); setResetSuccess(''); setResetError(''); setShowResetModal(true) }}
                       className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-[var(--bb-surface-3)] transition-colors text-left"
                       style={{ color: 'var(--bb-text-1)' }}
                     >
@@ -165,7 +186,7 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
                     </button>
                     <div style={{ borderTop: '1px solid var(--bb-border-subtle)' }} />
                     <button
-                      onClick={() => { setMenuOpen(false); setShowInviteModal(true) }}
+                      onClick={() => { setMenuOpen(false); setInviteEmail(''); setInviteSuccess(''); setShowInviteModal(true) }}
                       className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm hover:bg-[var(--bb-surface-3)] transition-colors text-left"
                       style={{ color: 'var(--bb-text-1)' }}
                     >
@@ -189,9 +210,7 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
         </div>
 
         <div>
-          <h3 className="font-semibold text-sm" style={{ color: 'var(--bb-text-1)' }}>
-            {bot.name}
-          </h3>
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--bb-text-1)' }}>{bot.name}</h3>
           <p className="text-xs mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
             {bot.slug} · {bot.default_language.toUpperCase()}
           </p>
@@ -207,22 +226,20 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
 
         <div className="flex items-center gap-3 mt-auto">
           <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--bb-text-3)' }}>
-            <Wifi size={12} />
-            Channels
+            <Wifi size={12} /> Channels
           </span>
           <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--bb-text-3)' }}>
-            <MessageSquare size={12} />
-            Conversations
+            <MessageSquare size={12} /> Conversations
           </span>
         </div>
       </div>
 
-      {/* Add Admin Modal */}
-      {showInviteModal && (
+      {/* Password Reset Modal */}
+      {showResetModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={() => setShowInviteModal(false)}
+          onClick={() => !resetLoading && setShowResetModal(false)}
         >
           <div
             className="w-full max-w-sm rounded-xl border p-6 space-y-4"
@@ -230,55 +247,157 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              <h3 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>
-                Add Another Admin
-              </h3>
+              <h3 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>Send Password Reset</h3>
               <p className="text-sm mt-1" style={{ color: 'var(--bb-text-3)' }}>
-                Invite an admin to manage{' '}
-                <span style={{ color: 'var(--bb-text-2)' }}>{bot.tenantName ?? bot.name}</span>
+                Enter the admin email for <span style={{ color: 'var(--bb-text-2)' }}>{clientLabel}</span>
               </p>
             </div>
 
-            <form onSubmit={handleInvite} className="space-y-3">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="admin@client.com"
-                required
-                autoFocus
-                className="w-full px-3 py-2.5 rounded-lg text-sm"
-                style={{
-                  background: 'var(--bb-surface-2)',
-                  border: '1px solid var(--bb-border)',
-                  color: 'var(--bb-text-1)',
-                  outline: 'none',
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--bb-primary)' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--bb-border)' }}
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-medium border"
-                  style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)', color: 'var(--bb-text-2)' }}
+            {resetSuccess ? (
+              <div className="space-y-4">
+                <div
+                  className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm"
+                  style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}
                 >
-                  Cancel
-                </button>
+                  <span style={{ color: 'var(--bb-success)' }}>✅</span>
+                  <span style={{ color: 'var(--bb-text-1)' }}>{resetSuccess}</span>
+                </div>
                 <button
-                  type="submit"
-                  disabled={inviteLoading || !inviteEmail.trim()}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
-                  style={{ background: 'var(--bb-primary)', color: '#fff' }}
+                  onClick={() => setShowResetModal(false)}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium"
+                  style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)', color: 'var(--bb-text-2)' }}
                 >
-                  {inviteLoading ? 'Sending…' : 'Send Invite'}
+                  Close
                 </button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleResetSubmit} className="space-y-3">
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="admin@client.com"
+                  required
+                  autoFocus
+                  disabled={resetLoading}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm disabled:opacity-50"
+                  style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)', color: 'var(--bb-text-1)', outline: 'none' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--bb-primary)' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--bb-border)' }}
+                />
+                {resetError && (
+                  <p className="text-xs" style={{ color: 'var(--bb-danger)' }}>{resetError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(false)}
+                    disabled={resetLoading}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+                    style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)', color: 'var(--bb-text-2)' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading || !resetEmail.trim()}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                    style={{ background: 'var(--bb-primary)', color: '#fff' }}
+                  >
+                    {resetLoading ? 'Sending…' : 'Send Reset'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
+
+      {/* Add Admin Modal */}
+      {showInviteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => !inviteLoading && setShowInviteModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border p-6 space-y-4"
+            style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>Add Another Admin</h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--bb-text-3)' }}>
+                Invite an admin to manage <span style={{ color: 'var(--bb-text-2)' }}>{clientLabel}</span>
+              </p>
+            </div>
+
+            {inviteSuccess ? (
+              <div className="space-y-4">
+                <div
+                  className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm"
+                  style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}
+                >
+                  <span style={{ color: 'var(--bb-success)' }}>✅</span>
+                  <span style={{ color: 'var(--bb-text-1)' }}>{inviteSuccess}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setInviteSuccess(''); setInviteEmail('') }}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium border"
+                    style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)', color: 'var(--bb-text-2)' }}
+                  >
+                    Add Another
+                  </button>
+                  <button
+                    onClick={() => setShowInviteModal(false)}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium"
+                    style={{ background: 'var(--bb-primary)', color: '#fff' }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleInvite} className="space-y-3">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="admin@client.com"
+                  required
+                  autoFocus
+                  disabled={inviteLoading}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm disabled:opacity-50"
+                  style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)', color: 'var(--bb-text-1)', outline: 'none' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--bb-primary)' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--bb-border)' }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowInviteModal(false)}
+                    disabled={inviteLoading}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+                    style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)', color: 'var(--bb-text-2)' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={inviteLoading || !inviteEmail.trim()}
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                    style={{ background: 'var(--bb-primary)', color: '#fff' }}
+                  >
+                    {inviteLoading ? 'Sending…' : 'Send Invite'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div
@@ -291,32 +410,18 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
             style={{ background: 'var(--bb-surface)', borderColor: 'rgba(239,68,68,0.3)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="flex items-start gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(239,68,68,0.1)' }}
-              >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(239,68,68,0.1)' }}>
                 <AlertTriangle size={20} style={{ color: 'var(--bb-danger)' }} />
               </div>
               <div>
-                <h3 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>
-                  Delete {bot.tenantName ?? bot.name}?
-                </h3>
-                <p className="text-sm mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
-                  This action is permanent and cannot be undone.
-                </p>
+                <h3 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>Delete {clientLabel}?</h3>
+                <p className="text-sm mt-0.5" style={{ color: 'var(--bb-text-3)' }}>This action is permanent and cannot be undone.</p>
               </div>
             </div>
 
-            {/* What gets deleted */}
-            <div
-              className="rounded-lg p-4 space-y-1.5 text-sm"
-              style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}
-            >
-              <p className="font-medium mb-2" style={{ color: 'var(--bb-danger)' }}>
-                The following will be permanently erased:
-              </p>
+            <div className="rounded-lg p-4 space-y-1.5 text-sm" style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
+              <p className="font-medium mb-2" style={{ color: 'var(--bb-danger)' }}>The following will be permanently erased:</p>
               {[
                 'Tenant account & all admin users',
                 `Bot: ${bot.name} and all configuration`,
@@ -333,33 +438,24 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
               ))}
             </div>
 
-            {/* Confirm by typing tenant name */}
             <div className="space-y-2">
               <p className="text-sm" style={{ color: 'var(--bb-text-2)' }}>
-                Type <span className="font-mono font-semibold" style={{ color: 'var(--bb-text-1)' }}>
-                  {bot.tenantName ?? bot.name}
-                </span> to confirm:
+                Type <span className="font-mono font-semibold" style={{ color: 'var(--bb-text-1)' }}>{clientLabel}</span> to confirm:
               </p>
               <input
                 type="text"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder={bot.tenantName ?? bot.name}
+                placeholder={clientLabel}
                 autoFocus
                 disabled={deleteLoading}
                 className="w-full px-3 py-2.5 rounded-lg text-sm disabled:opacity-50"
-                style={{
-                  background: 'var(--bb-surface-2)',
-                  border: '1px solid var(--bb-border)',
-                  color: 'var(--bb-text-1)',
-                  outline: 'none',
-                }}
+                style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)', color: 'var(--bb-text-1)', outline: 'none' }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--bb-danger)' }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--bb-border)' }}
               />
             </div>
 
-            {/* Actions */}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -373,8 +469,8 @@ export function BotCard({ bot, isSuperAdmin }: BotCardProps) {
               <button
                 type="button"
                 onClick={handleDelete}
-                disabled={deleteLoading || deleteConfirm !== (bot.tenantName ?? bot.name)}
-                className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity"
+                disabled={deleteLoading || deleteConfirm !== clientLabel}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40"
                 style={{ background: 'var(--bb-danger)', color: '#fff' }}
               >
                 {deleteLoading ? 'Deleting…' : 'Delete Client'}
