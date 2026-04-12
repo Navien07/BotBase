@@ -1,13 +1,10 @@
 // Text extraction from PDF, DOCX, TXT files
-// pdf-parse v2: class-based API — new PDFParse().parse(buffer) is CORRECT
+// pdf-parse v2: class-based API — new PDFParse({ data: buffer }) is CORRECT
 // NOT the old pdfParse(buffer) function call
+// IMPORTANT: pdf-parse require is lazy (inside function body) — top-level require
+// crashes at module load time on Vercel because pdfjs-dist polyfills DOMMatrix.
 
 import mammoth from 'mammoth'
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PDFParseModule = require('pdf-parse')
-const PDFParse: { new (): { parse(buffer: Buffer): Promise<{ text: string }> } } =
-  PDFParseModule.default ?? PDFParseModule
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -22,6 +19,12 @@ export function isSupportedMimeType(mimeType: string): boolean {
 
 export async function extractText(buffer: Buffer, mimeType: string): Promise<string> {
   if (mimeType === 'application/pdf') {
+    // Lazy require — must NOT be at top level; pdf-parse v2 runs DOMMatrix polyfill
+    // on module init which crashes the Vercel Node.js runtime before any handler runs.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const PDFParseModule = require('pdf-parse')
+    const PDFParse: { new (): { parse(buffer: Buffer): Promise<{ text: string }> } } =
+      PDFParseModule.default ?? PDFParseModule
     const parser = new PDFParse()
     const result = await parser.parse(buffer)
     return result.text
