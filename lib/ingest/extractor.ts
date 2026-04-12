@@ -6,7 +6,9 @@
 // DOCX: mammoth
 // TXT/CSV: raw utf-8
 
-import { PDFParser } from 'pdf2json'
+// pdf2json CJS exports the class as the default export (module.exports = PDFParser)
+// Named import { PDFParser } resolves to undefined — must use default import
+import PDFParser from 'pdf2json'
 import mammoth from 'mammoth'
 
 const ALLOWED_MIME_TYPES = new Set([
