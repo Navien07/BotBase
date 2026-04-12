@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
+import { Resend } from 'resend'
 
 const resetSchema = z.object({
   email: z.string().email(),
@@ -65,14 +66,39 @@ export async function POST(
       return Response.json({ error: 'This email is not an admin for this client' }, { status: 404 })
     }
 
-    // Send password reset
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/auth/set-password`,
+    // Generate password reset link via admin API (bypasses unreliable Supabase SMTP)
+    const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password`,
+      },
     })
-    console.log('resetPasswordForEmail result:', { email, error: resetError?.message ?? null })
 
-    if (resetError) return Response.json({ error: resetError.message }, { status: 400 })
+    if (linkError || !linkData) {
+      return Response.json({ error: linkError?.message ?? 'Failed to generate reset link' }, { status: 400 })
+    }
+
+    // Send via Resend directly
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const { error: emailError } = await resend.emails.send({
+      from: 'Iceberg AI Solutions <noreply@icebergaisolutions.com>',
+      to: email,
+      subject: 'Set your BotBase password',
+      html: `
+        <h2>Set Your BotBase Password</h2>
+        <p>Hi there,</p>
+        <p>Click the link below to set your password for your BotBase account:</p>
+        <p><a href="${linkData.properties.action_link}">Set Password &amp; Access Dashboard</a></p>
+        <p>This link expires in 24 hours.</p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+        <p>— Iceberg AI Solutions Team</p>
+      `,
+    })
+
+    if (emailError) {
+      return Response.json({ error: 'Failed to send email' }, { status: 500 })
+    }
 
     return Response.json({ success: true, emailsSent: 1, email })
   } catch (error) {

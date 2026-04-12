@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 import { isSuperAdminEmail } from '@/lib/auth/super-admin'
+import { Resend } from 'resend'
 
 const createTenantSchema = z.object({
   name: z.string().min(1).max(200),
@@ -147,19 +148,41 @@ export async function POST(req: Request) {
     let inviteType: 'invite' | 'password_reset'
 
     if (existingUser) {
-      // Existing user — link to new tenant + send password reset
+      // Existing user — link to new tenant + send invite via Resend
       await serviceClient.from('profiles').upsert({
         id: existingUser.id,
         tenant_id: tenant.id,
         role: 'tenant_admin',
         full_name: (existingUser.user_metadata?.full_name as string | undefined) ?? existingUser.email ?? adminEmail,
-      }, { onConflict: 'id' })
+      }, { onConflict: 'id', ignoreDuplicates: false })
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(adminEmail, {
-        redirectTo: `${appUrl}/login`,
+      const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
+        type: 'recovery',
+        email: adminEmail,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password`,
+        },
       })
-      if (resetError) throw resetError
+
+      if (linkError || !linkData) throw new Error(linkError?.message ?? 'Failed to generate invite link')
+
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const { error: emailError } = await resend.emails.send({
+        from: 'Iceberg AI Solutions <noreply@icebergaisolutions.com>',
+        to: adminEmail,
+        subject: "You've been invited to BotBase — Set your password",
+        html: `
+          <h2>You've been invited to BotBase</h2>
+          <p>Hi there,</p>
+          <p>You've been given access to a BotBase AI chatbot dashboard by <strong>Iceberg AI Solutions</strong>.</p>
+          <p>Click the link below to set your password and access your dashboard:</p>
+          <p><a href="${linkData.properties.action_link}">Accept Invite &amp; Set Password</a></p>
+          <p>This link expires in 24 hours.</p>
+          <p>— Iceberg AI Solutions Team</p>
+        `,
+      })
+
+      if (emailError) throw new Error('Failed to send email')
       inviteType = 'password_reset'
     } else {
       // New user — send invite

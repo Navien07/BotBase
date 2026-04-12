@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
+import { Resend } from 'resend'
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -63,7 +64,7 @@ export async function POST(
     )
 
     if (existingUser) {
-      // Existing user — link their profile to THIS tenant and send password reset
+      // Existing user — link their profile to THIS tenant and send invite via Resend
       await serviceClient.from('profiles').upsert({
         id: existingUser.id,
         tenant_id: tenantId,
@@ -71,17 +72,42 @@ export async function POST(
         full_name: (existingUser.user_metadata?.full_name as string | undefined) ?? existingUser.email ?? email,
       }, { onConflict: 'id', ignoreDuplicates: false })
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${appUrl}/auth/set-password`,
+      const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/set-password`,
+        },
       })
-      console.log('invite/reset result:', { email, type: 'password_reset', error: resetError?.message ?? null })
-      if (resetError) throw resetError
+
+      if (linkError || !linkData) {
+        return Response.json({ error: linkError?.message ?? 'Failed to generate invite link' }, { status: 400 })
+      }
+
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const { error: emailError } = await resend.emails.send({
+        from: 'Iceberg AI Solutions <noreply@icebergaisolutions.com>',
+        to: email,
+        subject: "You've been invited to BotBase — Set your password",
+        html: `
+          <h2>You've been invited to BotBase</h2>
+          <p>Hi there,</p>
+          <p>You've been given access to a BotBase AI chatbot dashboard by <strong>Iceberg AI Solutions</strong>.</p>
+          <p>Click the link below to set your password and access your dashboard:</p>
+          <p><a href="${linkData.properties.action_link}">Accept Invite &amp; Set Password</a></p>
+          <p>This link expires in 24 hours.</p>
+          <p>— Iceberg AI Solutions Team</p>
+        `,
+      })
+
+      if (emailError) {
+        return Response.json({ error: 'Failed to send email' }, { status: 500 })
+      }
 
       return Response.json({ success: true, email, type: 'password_reset' })
     }
 
-    // New user — send invite
+    // New user — send invite (inviteUserByEmail handles its own email via Supabase)
     const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
       email,
       {
@@ -91,7 +117,6 @@ export async function POST(
         },
       }
     )
-    console.log('invite/reset result:', { email, type: 'invite', error: inviteError?.message ?? null })
 
     if (inviteError) throw inviteError
 
