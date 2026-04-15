@@ -39,7 +39,15 @@ export async function GET(
     const { data, error } = await handler(botId, from, to)
 
     if (error) {
-      const msg = error instanceof Error ? error.message : String(error)
+      const errObj = error as { code?: string; message?: string }
+      // Postgres "undefined_function" — RPC not yet deployed; return empty gracefully
+      if (errObj?.code === '42883' || errObj?.code === 'PGRST202') {
+        console.warn(`[analytics GET] RPC not found for report=${report} — run pending migrations`)
+        return Response.json({ data: [] }, {
+          headers: { 'Cache-Control': 'no-store' },
+        })
+      }
+      const msg = errObj?.message ?? String(error)
       console.error(`[analytics GET] report=${report} botId=${botId}`, error)
       return Response.json({ error: msg }, { status: 500 })
     }
