@@ -66,7 +66,8 @@ export function FlowPreview({ flowData, onNodeSelect }: FlowPreviewProps) {
 
   const totalNodes = flowData.nodes.length
 
-  const processNode = useCallback((nodeId: string, vars: Record<string, string>, messages: Message[], step: number): PreviewState => {
+  const processNode = useCallback((nodeId: string, vars: Record<string, string>, messages: Message[], step: number, depth = 0): PreviewState => {
+    if (depth > 50) return { currentNodeId: null, variables: vars, messages: [...messages, { role: 'bot', content: '[Flow error: too many steps — check for loops]' }], step, total: totalNodes, done: true, waitingForInput: false, quickReplies: [] }
     const node = flowData.nodes.find((n) => n.id === nodeId)
     if (!node) return { currentNodeId: null, variables: vars, messages, step, total: totalNodes, done: true, waitingForInput: false, quickReplies: [] }
 
@@ -77,7 +78,7 @@ export function FlowPreview({ flowData, onNodeSelect }: FlowPreviewProps) {
       const nextId = getNextNodeId(flowData, nodeId)
       const newMessages: Message[] = [...messages, { role: 'bot', content: text, nodeId }]
       if (!nextId) return { currentNodeId: null, variables: vars, messages: newMessages, step: step + 1, total: totalNodes, done: true, waitingForInput: false, quickReplies: [] }
-      return processNode(nextId, vars, newMessages, step + 1)
+      return processNode(nextId, vars, newMessages, step + 1, depth + 1)
     }
 
     if (node.type === 'question') {
@@ -103,7 +104,7 @@ export function FlowPreview({ flowData, onNodeSelect }: FlowPreviewProps) {
       const handle = result ? 'true' : 'false'
       const nextId = getNextNodeId(flowData, nodeId, handle)
       if (!nextId) return { currentNodeId: null, variables: vars, messages, step: step + 1, total: totalNodes, done: true, waitingForInput: false, quickReplies: [] }
-      return processNode(nextId, vars, messages, step + 1)
+      return processNode(nextId, vars, messages, step + 1, depth + 1)
     }
 
     if (node.type === 'ai_response') {

@@ -1,7 +1,9 @@
 'use client'
 
-import { MessageSquare, HelpCircle, GitBranch, Bot, Globe, CalendarCheck, UserCheck, Timer, PhoneForwarded, Stethoscope, Shield, Home, UtensilsCrossed, ShoppingBag } from 'lucide-react'
+import { useState } from 'react'
+import { MessageSquare, HelpCircle, GitBranch, Bot, Globe, CalendarCheck, UserCheck, Timer, PhoneForwarded, Stethoscope, Shield, Home, UtensilsCrossed, ShoppingBag, BookOpen } from 'lucide-react'
 import type { FlowData } from '@/types/database'
+import { FlowGuideModal } from './FlowGuideModal'
 
 interface NodeTypeItem {
   type: string
@@ -137,20 +139,33 @@ interface NodePanelProps {
 }
 
 export function NodePanel({ onLoadTemplate }: NodePanelProps) {
+  const [showGuide, setShowGuide] = useState(false)
+
   function onDragStart(event: React.DragEvent, type: string) {
     event.dataTransfer.setData('application/reactflow-node-type', type)
     event.dataTransfer.effectAllowed = 'move'
   }
 
   return (
+    <>
     <div
       className="flex flex-col h-full overflow-y-auto"
       style={{ background: 'var(--bb-surface)', borderRight: '1px solid var(--bb-border)' }}
     >
       {/* Node types */}
       <div className="p-3">
-        <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--bb-text-3)' }}>
-          Node Types
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--bb-text-3)' }}>
+            Node Types
+          </div>
+          <button
+            onClick={() => setShowGuide(true)}
+            title="Open Flow Builder Guide"
+            className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded"
+            style={{ color: 'var(--bb-primary)', background: 'rgba(99,102,241,0.1)' }}
+          >
+            <BookOpen size={11} /> Guide
+          </button>
         </div>
         <div className="space-y-1">
           {NODE_TYPES.map(({ type, label, icon, color }) => (
@@ -202,5 +217,7 @@ export function NodePanel({ onLoadTemplate }: NodePanelProps) {
         </div>
       </div>
     </div>
+    {showGuide && <FlowGuideModal onClose={() => setShowGuide(false)} />}
+    </>
   )
 }
