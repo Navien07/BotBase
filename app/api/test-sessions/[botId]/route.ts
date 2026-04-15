@@ -5,7 +5,6 @@ interface DbConversation {
   id: string
   external_user_id: string
   created_at: string
-  updated_at: string
 }
 
 interface DbMessage {
@@ -33,7 +32,7 @@ export async function GET(
 
     const { data: sessions, error } = await service
       .from('conversations')
-      .select('id, external_user_id, created_at, updated_at')
+      .select('id, external_user_id, created_at')
       .eq('bot_id', botId)
       .eq('channel', 'testing')
       .order('created_at', { ascending: false })
@@ -72,7 +71,6 @@ export async function GET(
       id: s.id,
       sessionId: s.external_user_id,
       createdAt: s.created_at,
-      updatedAt: s.updated_at,
       messageCount: countMap[s.id] ?? 0,
       lastMessage: lastMsgMap[s.id] ?? null,
     }))

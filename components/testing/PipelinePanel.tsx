@@ -257,7 +257,8 @@ export function PipelinePanel({
   latencyMs,
   totalDurationMs,
 }: PipelinePanelProps) {
-  if (!steps || steps.length === 0) {
+  // null = no message sent yet; [] = message sent but no step data available
+  if (steps === null) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
         <div
@@ -268,6 +269,43 @@ export function PipelinePanel({
         </div>
         <p className="text-sm" style={{ color: 'var(--bb-text-3)' }}>
           Send a message to see the pipeline
+        </p>
+      </div>
+    )
+  }
+
+  if (steps.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3">
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+          style={{ background: 'var(--bb-surface-2)' }}
+        >
+          📊
+        </div>
+        <p className="text-sm" style={{ color: 'var(--bb-text-2)' }}>Pipeline ran</p>
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          {intent && (
+            <span className="text-xs font-mono px-2 py-1 rounded"
+              style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
+              {intent}
+            </span>
+          )}
+          {language && (
+            <span className="text-xs font-mono px-2 py-1 rounded uppercase"
+              style={{ background: 'var(--bb-surface-3)', color: 'var(--bb-text-2)' }}>
+              {language}
+            </span>
+          )}
+          {ragFound && (
+            <span className="text-xs font-mono px-2 py-1 rounded"
+              style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+              rag hit
+            </span>
+          )}
+        </div>
+        <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
+          Step detail data not available
         </p>
       </div>
     )

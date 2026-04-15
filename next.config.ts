@@ -8,8 +8,13 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 ]
 
+// Overrides for the testing console — microphone needed for voice recording
+const testingHeaders = [
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
+]
+
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['voyageai', 'pdf-parse', 'unpdf', 'pdf2json', 'mammoth', 'sharp', 'cheerio'],
+  serverExternalPackages: ['voyageai', 'pdf-parse', 'unpdf', 'pdf2json', 'mammoth', 'sharp', 'cheerio', '@anthropic-ai/sdk', 'gpt-tokenizer'],
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '*.supabase.co' }],
   },
@@ -28,6 +33,11 @@ const nextConfig: NextConfig = {
           ...securityHeaders,
           { key: 'X-Frame-Options', value: 'ALLOWALL' },
         ],
+      },
+      // Testing console needs microphone access for voice recording
+      {
+        source: '/dashboard/bots/:botId/testing',
+        headers: testingHeaders,
       },
     ]
   },

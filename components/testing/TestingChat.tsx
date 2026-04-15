@@ -189,6 +189,18 @@ export function TestingChat({
       const languageHeader = response.headers.get('X-Language') ?? 'en'
       const ragFoundHeader = response.headers.get('X-Rag-Found') === 'true'
       const transcription = response.headers.get('X-Transcription')
+      const stepsB64 = response.headers.get('X-Pipeline-Steps')
+      const totalDurationHeader = Number(response.headers.get('X-Total-Duration') ?? '0')
+
+      // Decode compact steps from header — available immediately, no DB needed
+      let headerSteps: NormalizedStep[] = []
+      if (stepsB64) {
+        try {
+          headerSteps = JSON.parse(atob(stepsB64)) as NormalizedStep[]
+        } catch {
+          // ignore malformed header
+        }
+      }
 
       // Update user bubble with actual transcription if voice
       if (transcription) {
@@ -219,43 +231,45 @@ export function TestingChat({
       )
       setIsStreaming(false)
 
-      // Fetch pipeline debug — wait for fire-and-forget DB write to settle
-      await new Promise(r => setTimeout(r, 700))
+      // Populate pipeline panel immediately from header steps (no DB wait)
+      onResponseComplete({
+        steps: headerSteps,
+        ragChunks: [],
+        intent: intentHeader || null,
+        language: languageHeader,
+        ragFound: ragFoundHeader,
+        latencyMs: 0,
+        totalDurationMs: totalDurationHeader,
+      })
+
+      // Then try DB for full step data (with data fields) + RAG chunk content
+      await new Promise(r => setTimeout(r, 1200))
 
       const fetchDebug = async (attempt = 1): Promise<void> => {
         const debugRes = await fetch(
           `/api/conversations/${botId}/debug/last?session_id=${sessionId}`
         )
         if (debugRes.status === 404 && attempt < 3) {
-          await new Promise(r => setTimeout(r, 1000))
+          await new Promise(r => setTimeout(r, 1200))
           return fetchDebug(attempt + 1)
         }
-        if (!debugRes.ok) {
-          // Fallback: report what we know from headers
-          onResponseComplete({
-            steps: [],
-            ragChunks: [],
-            intent: intentHeader || null,
-            language: languageHeader,
-            ragFound: ragFoundHeader,
-            latencyMs: 0,
-            totalDurationMs: 0,
-          })
-          return
-        }
+        if (!debugRes.ok) return  // already have header data — no need to overwrite
         const data = await debugRes.json() as DebugResult
-        onResponseComplete({
-          steps: data.steps ?? [],
-          ragChunks: data.ragChunks ?? [],
-          intent: data.intent ?? (intentHeader || null),
-          language: data.language ?? languageHeader,
-          ragFound: data.ragFound ?? ragFoundHeader,
-          latencyMs: data.latencyMs ?? 0,
-          totalDurationMs: data.totalDurationMs ?? 0,
-        })
+        // Only update if DB returned richer step data or RAG chunks
+        if ((data.steps?.length ?? 0) > 0 || (data.ragChunks?.length ?? 0) > 0) {
+          onResponseComplete({
+            steps: data.steps ?? headerSteps,
+            ragChunks: data.ragChunks ?? [],
+            intent: data.intent ?? (intentHeader || null),
+            language: data.language ?? languageHeader,
+            ragFound: data.ragFound ?? ragFoundHeader,
+            latencyMs: data.latencyMs ?? 0,
+            totalDurationMs: data.totalDurationMs ?? totalDurationHeader,
+          })
+        }
       }
 
-      await fetchDebug()
+      fetchDebug().catch(() => null)
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
       console.error('[TestingChat]', err)

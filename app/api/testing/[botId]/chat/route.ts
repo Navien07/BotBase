@@ -156,12 +156,27 @@ export async function POST(
 
     const { stream, result } = await runPipeline(pipelineContext)
 
+    // Encode compact step metadata as base64 so the client can populate the
+    // pipeline panel immediately — no DB round-trip needed.
+    // (data field omitted to keep header size small; DB fetch adds it later)
+    const stepsCompact = (result.steps ?? []).map((s) => ({
+      step: s.step,
+      name: s.name,
+      status: s.status,
+      durationMs: s.durationMs,
+      data: {} as Record<string, unknown>,
+      ...(s.blockedResponse ? { blockedResponse: s.blockedResponse } : {}),
+    }))
+    const stepsB64 = Buffer.from(JSON.stringify(stepsCompact)).toString('base64')
+
     const responseHeaders = new Headers({
       'X-Conversation-Id': conversationId,
       'X-Session-Id': sessionId,
       'X-Intent': result.intent ?? '',
       'X-Language': result.language,
       'X-Rag-Found': result.ragFound ? 'true' : 'false',
+      'X-Pipeline-Steps': stepsB64,
+      'X-Total-Duration': String(result.totalDurationMs ?? 0),
       ...(transcription ? { 'X-Transcription': transcription } : {}),
     })
 
