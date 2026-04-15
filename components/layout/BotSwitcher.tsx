@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, Bot, Plus } from 'lucide-react'
@@ -16,14 +16,16 @@ export function BotSwitcher({ bots, isCollapsed, role }: BotSwitcherProps) {
   const isSuperAdmin = role === 'super_admin'
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [currentBotId, setCurrentBotId] = useState<string | null>(
-    () => {
-      if (typeof window !== 'undefined') {
-        return localStorage.getItem('bb_current_bot') ?? bots[0]?.id ?? null
-      }
-      return bots[0]?.id ?? null
+  // Start with bots[0] so server and client render the same initial HTML.
+  // After hydration, sync to the localStorage preference if it's still valid.
+  const [currentBotId, setCurrentBotId] = useState<string | null>(bots[0]?.id ?? null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('bb_current_bot')
+    if (stored && bots.some((b) => b.id === stored)) {
+      setCurrentBotId(stored)
     }
-  )
+  }, [bots])
 
   const currentBot = bots.find((b) => b.id === currentBotId) ?? bots[0] ?? null
 
