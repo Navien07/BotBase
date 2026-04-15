@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { MessageSquare, Users, Calendar, TrendingUp } from 'lucide-react'
+import { SnapshotStrip } from '@/components/analytics/SnapshotStrip'
 
 interface Props {
   params: Promise<{ botId: string }>
@@ -40,6 +41,9 @@ export default async function BotOverviewPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Performance Snapshot */}
+      <SnapshotStrip botId={botId} defaultPeriod="7d" />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
           <div

@@ -60,6 +60,8 @@ function getBotNavSections(botId: string): NavSection[] {
   return [
     {
       items: [
+        { key: 'overview',      icon: BarChart3,    href: `${base}/overview` },
+        { key: 'analytics',    icon: Activity,     href: `${base}/analytics` },
         { key: 'conversations', icon: MessageSquare, href: `${base}/conversations` },
         { key: 'contacts', icon: Users, href: `${base}/contacts` },
         { key: 'broadcasts', icon: Radio, href: `${base}/broadcasts` },

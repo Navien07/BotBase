@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Users, MessageSquare, ShieldAlert, TrendingUp, Plus, BookOpen, GitBranch, Wifi } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { SnapshotStrip } from '@/components/analytics/SnapshotStrip'
 
 export default async function OverviewPage() {
   const supabase = await createClient()
@@ -135,6 +136,11 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Performance Snapshot — uses first accessible bot; aggregation across all bots is a future enhancement */}
+      {hasBots && botIds[0] && (
+        <SnapshotStrip botId={botIds[0]} defaultPeriod="7d" />
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
