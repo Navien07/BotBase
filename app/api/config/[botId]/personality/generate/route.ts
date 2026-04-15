@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 
@@ -26,8 +26,6 @@ export async function POST(
 
     const { botDescription, industry } = parsed.data
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
@@ -40,12 +38,12 @@ export async function POST(
       ],
     })
 
-    const content = message.content[0]
-    if (content.type !== 'text') {
+    const systemPrompt = anthropic.getTextContent(message)
+    if (!systemPrompt) {
       return Response.json({ error: 'Unexpected response from AI' }, { status: 500 })
     }
 
-    return Response.json({ systemPrompt: content.text })
+    return Response.json({ systemPrompt })
   } catch (error) {
     console.error('[personality/generate POST]', error)
     return Response.json(

@@ -1,9 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import { createServiceClient } from '@/lib/supabase/service'
 import { analyzeSentiment } from '@/lib/sentiment/analyzer'
 import type { PipelineContext, StepResult } from './types'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+import type { MessageParam } from '@/lib/anthropic'
 
 interface Step10Result {
   stream: ReadableStream<Uint8Array>
@@ -17,8 +16,8 @@ export async function step10Llm(
   const model = 'claude-haiku-4-5-20251001'
   const maxTokens = Math.min(ctx.bot.response_max_words * 5, 2048)
 
-  const messages: Anthropic.MessageParam[] = [
-    ...ctx.history.map((h) => ({ role: h.role, content: h.content })),
+  const messages: MessageParam[] = [
+    ...ctx.history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
     { role: 'user', content: ctx.message },
   ]
 
@@ -31,22 +30,14 @@ export async function step10Llm(
   ;(async () => {
     let fullResponse = ''
     try {
-      const stream = anthropic.messages.stream({
+      for await (const chunk of anthropic.messages.stream({
         model,
         max_tokens: maxTokens,
         system: ctx.systemPrompt ?? 'You are a helpful AI assistant.',
         messages,
-      })
-
-      for await (const event of stream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
-          const text = event.delta.text
-          fullResponse += text
-          await writer.write(encoder.encode(text))
-        }
+      })) {
+        fullResponse += chunk
+        await writer.write(encoder.encode(chunk))
       }
     } catch (err) {
       console.error('[step-10-llm] stream error:', err)

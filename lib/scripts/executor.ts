@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import type { FlowData, FlowNode } from '@/types/database'
 import type { PipelineContext } from '@/lib/pipeline/types'
 
@@ -138,7 +138,6 @@ async function handleAIResponseNode(node: FlowNode, context: ScriptContext, flow
   const instructions = interpolate((node.data.instructions as string) ?? '', context.variables)
   const allowFallback = (node.data.allow_fallback as boolean) ?? true
 
-  const anthropic = new Anthropic()
   const historyMessages = context.conversationHistory
     .filter((h) => h.role === 'user' || h.role === 'assistant')
     .slice(-6)
@@ -156,7 +155,7 @@ async function handleAIResponseNode(node: FlowNode, context: ScriptContext, flow
       system: systemParts.join('\n') || 'You are a helpful assistant.',
       messages: historyMessages.length > 0 ? historyMessages : [{ role: 'user', content: 'Hello' }],
     })
-    const text = msg.content[0]?.type === 'text' ? msg.content[0].text : 'How can I help you?'
+    const text = anthropic.getTextContent(msg) || 'How can I help you?'
     const next = getNextNode(flowData, node.id)
     return { response: text, nextNodeId: next?.id ?? null, capturedVariables: {}, isComplete: !next, requiresUserInput: false, quickReplies: [] }
   } catch {

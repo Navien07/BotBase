@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import { z } from 'zod'
-
-const client = new Anthropic()
 
 const BodySchema = z.object({
   description: z.string().min(10).max(2000),
@@ -55,7 +53,7 @@ export async function POST(
 
     const { description, industry } = parsed.data
 
-    const message = await client.messages.create({
+    const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
@@ -67,12 +65,10 @@ export async function POST(
       ],
     })
 
-    const rawContent = message.content[0]
-    if (rawContent.type !== 'text') {
+    const text = anthropic.getTextContent(message).trim()
+    if (!text) {
       return Response.json({ error: 'Unexpected response from AI' }, { status: 422 })
     }
-
-    const text = rawContent.text.trim()
 
     // Strip markdown code fences if present
     const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()

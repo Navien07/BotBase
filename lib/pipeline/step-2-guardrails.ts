@@ -1,8 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { PipelineContext, StepResult } from './types'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 async function getDeflectionMessage(ctx: PipelineContext): Promise<string> {
   const supabase = createServiceClient()
@@ -55,7 +53,7 @@ Return ONLY: {"blocked":true|false,"reason":"<brief reason if blocked>"}`
         messages: [{ role: 'user', content: ctx.message.slice(0, 500) }],
       })
 
-      const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}'
+      const text = anthropic.getTextContent(response).trim() || '{}'
       const result = JSON.parse(text) as { blocked: boolean; reason?: string }
 
       if (result.blocked) {

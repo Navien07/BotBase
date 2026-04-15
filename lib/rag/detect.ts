@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import type { Intent } from '@/types/database'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export interface DetectResult {
   intent: Intent
@@ -32,7 +30,7 @@ export async function detectIntentAndLanguage(message: string): Promise<DetectRe
       messages: [{ role: 'user', content: message.slice(0, 1000) }],
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '{}'
+    const text = anthropic.getTextContent(response).trim() || '{}'
     const parsed = JSON.parse(text) as { intent: string; language: string; confidence: number }
 
     const validIntents: Intent[] = ['browse_product', 'health_issue', 'book_session', 'faq', 'general']

@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { anthropic } from '@/lib/anthropic'
 import type { Sentiment } from '@/types/database'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 interface SentimentResult {
   sentiment: Sentiment
@@ -17,7 +15,7 @@ export async function analyzeSentiment(message: string): Promise<SentimentResult
       messages: [{ role: 'user', content: message.slice(0, 500) }],
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
+    const text = anthropic.getTextContent(response)
     const parsed = JSON.parse(text.trim()) as { sentiment: Sentiment; score: number }
     return {
       sentiment: parsed.sentiment ?? 'neutral',
