@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, use } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   MessageSquare, BarChart2, ShieldAlert, Globe,
-  ThumbsUp, ThumbsDown, Download,
+  ThumbsUp, ThumbsDown, Download, ChevronDown,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -185,18 +187,63 @@ interface Props {
   params: Promise<{ botId: string }>
 }
 
+interface BotOption { id: string; name: string; tenantName?: string }
+
 export default function AnalyticsPage({ params }: Props) {
   const { botId } = use(params)
+  const router = useRouter()
+  const supabase = createClient()
 
   const [period, setPeriod] = useState<Period>('7d')
   const [loading, setLoading] = useState(true)
   const [errors, setErrors] = useState<Partial<Record<string, boolean>>>({})
+  const [bots, setBots] = useState<BotOption[]>([])
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [data, setData] = useState<AnalyticsState>({
     kpi: null, volume: [], intents: [], languages: [], channels: [],
     satisfaction: null, funnel: [], unanswered: [],
     convByChannel: [], channelBreakdown: [], leadStages: [],
     bookingStatus: [], waVolume: [], tgVolume: [], followup: [],
   })
+
+  // Fetch bots for bot selector based on role
+  useEffect(() => {
+    async function fetchBots() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, tenant_id')
+        .eq('id', user.id)
+        .single()
+      if (!profile) return
+
+      if (profile.role === 'super_admin') {
+        setIsSuperAdmin(true)
+        const { data: allBots } = await supabase
+          .from('bots')
+          .select('id, name, tenant_id, tenants(name)')
+          .order('name')
+        setBots((allBots ?? []).map((b: Record<string, unknown>) => ({
+          id: b.id as string,
+          name: b.name as string,
+          tenantName: (b.tenants as { name: string } | null)?.name,
+        })))
+      } else {
+        const { data: tenantBots } = await supabase
+          .from('bots')
+          .select('id, name')
+          .eq('tenant_id', profile.tenant_id)
+          .order('name')
+        setBots((tenantBots ?? []).map((b: Record<string, unknown>) => ({
+          id: b.id as string,
+          name: b.name as string,
+        })))
+      }
+    }
+    void fetchBots()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const cache = useRef<Record<string, unknown>>({})
 
@@ -295,6 +342,33 @@ export default function AnalyticsPage({ params }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Bot selector */}
+          {bots.length > 1 && (
+            <div className="relative">
+              <select
+                value={botId}
+                onChange={(e) => router.push(`/dashboard/bots/${e.target.value}/analytics`)}
+                className="appearance-none pl-3 pr-8 py-1.5 rounded-lg border text-xs outline-none cursor-pointer"
+                style={{
+                  background: 'var(--bb-surface)',
+                  borderColor: 'var(--bb-border)',
+                  color: 'var(--bb-text-1)',
+                }}
+              >
+                {isSuperAdmin
+                  ? bots.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.tenantName ? `${b.tenantName} — ${b.name}` : b.name}
+                      </option>
+                    ))
+                  : bots.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))
+                }
+              </select>
+              <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--bb-text-3)' }} />
+            </div>
+          )}
           <div
             className="flex rounded-lg border overflow-hidden"
             style={{ borderColor: 'var(--bb-border)' }}
@@ -375,63 +449,42 @@ export default function AnalyticsPage({ params }: Props) {
               <Skeleton className="h-32" />
             ) : errors['satisfaction'] ? (
               <ErrorState />
-            ) : !data.satisfaction ||
-              (data.satisfaction.thumbs_up === 0 && data.satisfaction.thumbs_down === 0) ? (
-              <EmptyState message="No ratings yet" />
-            ) : (
-              <div className="flex items-center gap-8 py-4">
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className="flex items-center justify-center w-14 h-14 rounded-full"
-                    style={{ background: 'rgba(34,197,94,0.15)' }}
-                  >
-                    <ThumbsUp className="w-6 h-6" style={{ color: '#22c55e' }} />
-                  </div>
-                  <p className="text-2xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>
-                    {data.satisfaction.thumbs_up.toLocaleString()}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--bb-text-2)' }}>Positive</p>
-                </div>
-                <div className="h-12 w-px" style={{ background: 'var(--bb-border)' }} />
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className="flex items-center justify-center w-14 h-14 rounded-full"
-                    style={{ background: 'rgba(239,68,68,0.15)' }}
-                  >
-                    <ThumbsDown className="w-6 h-6" style={{ color: '#ef4444' }} />
-                  </div>
-                  <p className="text-2xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>
-                    {data.satisfaction.thumbs_down.toLocaleString()}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--bb-text-2)' }}>Negative</p>
-                </div>
-                {data.satisfaction.thumbs_up + data.satisfaction.thumbs_down > 0 && (
-                  <div className="flex-1">
-                    <div
-                      className="rounded-full overflow-hidden"
-                      style={{ height: 8, background: 'var(--bb-surface-3)' }}
-                    >
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.round(
-                            (data.satisfaction.thumbs_up /
-                              (data.satisfaction.thumbs_up + data.satisfaction.thumbs_down)) * 100
-                          )}%`,
-                          background: '#22c55e',
-                        }}
-                      />
+            ) : (() => {
+              const up   = Number(data.satisfaction?.thumbs_up   ?? 0)
+              const down = Number(data.satisfaction?.thumbs_down ?? 0)
+              if (!data.satisfaction || (up === 0 && down === 0)) {
+                return <EmptyState message="No ratings yet" />
+              }
+              return (
+                <div className="flex items-center gap-8 py-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center justify-center w-14 h-14 rounded-full" style={{ background: 'rgba(34,197,94,0.15)' }}>
+                      <ThumbsUp className="w-6 h-6" style={{ color: '#22c55e' }} />
                     </div>
-                    <p className="text-xs mt-1 text-right" style={{ color: 'var(--bb-text-3)' }}>
-                      {Math.round(
-                        (data.satisfaction.thumbs_up /
-                          (data.satisfaction.thumbs_up + data.satisfaction.thumbs_down)) * 100
-                      )}% positive
-                    </p>
+                    <p className="text-2xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>{up.toLocaleString()}</p>
+                    <p className="text-xs" style={{ color: 'var(--bb-text-2)' }}>Positive</p>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="h-12 w-px" style={{ background: 'var(--bb-border)' }} />
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center justify-center w-14 h-14 rounded-full" style={{ background: 'rgba(239,68,68,0.15)' }}>
+                      <ThumbsDown className="w-6 h-6" style={{ color: '#ef4444' }} />
+                    </div>
+                    <p className="text-2xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>{down.toLocaleString()}</p>
+                    <p className="text-xs" style={{ color: 'var(--bb-text-2)' }}>Negative</p>
+                  </div>
+                  {up + down > 0 && (
+                    <div className="flex-1">
+                      <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--bb-surface-3)' }}>
+                        <div className="h-full rounded-full" style={{ width: `${Math.round((up / (up + down)) * 100)}%`, background: '#22c55e' }} />
+                      </div>
+                      <p className="text-xs mt-1 text-right" style={{ color: 'var(--bb-text-3)' }}>
+                        {Math.round((up / (up + down)) * 100)}% positive
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </CardShell>
         </div>
       </section>

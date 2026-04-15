@@ -80,7 +80,10 @@ export async function getLeadFunnel(botId: string) {
 
 export async function getSatisfactionCounts(botId: string, from: string, to: string) {
   const supabase = createServiceClient()
-  return supabase.rpc('get_satisfaction_counts', { p_bot_id: botId, p_from: from, p_to: to })
+  const { data, error } = await supabase.rpc('get_satisfaction_counts', { p_bot_id: botId, p_from: from, p_to: to })
+  // RPC returns TABLE → Supabase wraps result in an array; extract first row
+  const row = Array.isArray(data) ? (data[0] ?? null) : data
+  return { data: row, error }
 }
 
 export async function getBookingFunnel(botId: string, from: string, to: string) {
@@ -164,12 +167,12 @@ export async function getLeadsByStage(botId: string, from: string, to: string) {
 
 export async function getWhatsappVolume(botId: string, from: string, to: string) {
   const supabase = createServiceClient()
-  return supabase.rpc('get_message_volume', { p_bot_id: botId, p_channel: 'whatsapp', p_from: from, p_to: to })
+  return supabase.rpc('get_channel_message_volume', { p_bot_id: botId, p_channel: 'whatsapp', p_from: from, p_to: to })
 }
 
 export async function getTelegramVolume(botId: string, from: string, to: string) {
   const supabase = createServiceClient()
-  return supabase.rpc('get_message_volume', { p_bot_id: botId, p_channel: 'telegram', p_from: from, p_to: to })
+  return supabase.rpc('get_channel_message_volume', { p_bot_id: botId, p_channel: 'telegram', p_from: from, p_to: to })
 }
 
 // ─── Dispatch map ─────────────────────────────────────────────────────────────
