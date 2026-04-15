@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import {
   MessageSquare, BarChart2, ShieldAlert, Globe,
   ThumbsUp, ThumbsDown, Download, ChevronDown,
@@ -192,7 +191,6 @@ interface BotOption { id: string; name: string; tenantName?: string }
 export default function AnalyticsPage({ params }: Props) {
   const { botId } = use(params)
   const router = useRouter()
-  const supabase = createClient()
 
   const [period, setPeriod] = useState<Period>('7d')
   const [loading, setLoading] = useState(true)
@@ -206,43 +204,16 @@ export default function AnalyticsPage({ params }: Props) {
     bookingStatus: [], waVolume: [], tgVolume: [], followup: [],
   })
 
-  // Fetch bots for bot selector based on role
+  // Fetch bots for bot selector via API route (uses service client to avoid RLS recursion)
   useEffect(() => {
-    async function fetchBots() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, tenant_id')
-        .eq('id', user.id)
-        .single()
-      if (!profile) return
-
-      if (profile.role === 'super_admin') {
-        setIsSuperAdmin(true)
-        const { data: allBots } = await supabase
-          .from('bots')
-          .select('id, name, tenant_id, tenants(name)')
-          .order('name')
-        setBots((allBots ?? []).map((b: Record<string, unknown>) => ({
-          id: b.id as string,
-          name: b.name as string,
-          tenantName: (b.tenants as { name: string } | null)?.name,
-        })))
-      } else {
-        const { data: tenantBots } = await supabase
-          .from('bots')
-          .select('id, name')
-          .eq('tenant_id', profile.tenant_id)
-          .order('name')
-        setBots((tenantBots ?? []).map((b: Record<string, unknown>) => ({
-          id: b.id as string,
-          name: b.name as string,
-        })))
-      }
-    }
-    void fetchBots()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetch('/api/analytics/bots')
+      .then(r => r.ok ? r.json() : null)
+      .then((json: { isSuperAdmin: boolean; bots: BotOption[] } | null) => {
+        if (!json) return
+        setIsSuperAdmin(json.isSuperAdmin)
+        setBots(json.bots)
+      })
+      .catch(() => {/* non-critical */})
   }, [])
 
   const cache = useRef<Record<string, unknown>>({})
