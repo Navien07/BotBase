@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, RotateCcw } from 'lucide-react'
+import { Send, RotateCcw, Mic, MicOff } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ interface DebugResult {
   totalDurationMs: number
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string
   role: 'user' | 'bot'
   content: string
@@ -38,11 +38,11 @@ interface TestingChatProps {
   greeting: string | null
   onResponseComplete: (result: DebugResult) => void
   onSessionReset: () => void
+  initialMessages?: ChatMessage[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Minimal markdown renderer: handles **bold**, *italic*, `code`, bullets, newlines */
 function renderMarkdown(text: string): React.ReactNode[] {
   return text.split('\n').map((line, li) => {
     const isBullet = /^[-*•]\s/.test(line)
@@ -85,17 +85,18 @@ function TypingIndicator() {
   return (
     <div className="flex items-end mb-4">
       <div
-        className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1"
+        className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5"
         style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)' }}
       >
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="w-1.5 h-1.5 rounded-full"
+            className="w-2 h-2 rounded-full"
             style={{
               background: 'var(--bb-primary)',
+              display: 'inline-block',
               animation: 'bb-dot-bounce 1.2s infinite ease-in-out',
-              animationDelay: `${i * 0.2}s`,
+              animationDelay: `${i * 0.18}s`,
             }}
           />
         ))}
@@ -113,47 +114,69 @@ export function TestingChat({
   greeting,
   onResponseComplete,
   onSessionReset,
+  initialMessages,
 }: TestingChatProps) {
+  const defaultWelcome = greeting ?? `Hi! I'm ${botName}. How can I help you today?`
+
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const welcomeText = greeting ?? `Hi! I'm ${botName}. How can I help you today?`
-    return [{ id: 'welcome', role: 'bot', content: welcomeText }]
+    if (initialMessages && initialMessages.length > 0) return initialMessages
+    return [{ id: 'welcome', role: 'bot', content: defaultWelcome }]
   })
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [voiceSupported, setVoiceSupported] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+
+  useEffect(() => {
+    setVoiceSupported(
+      typeof MediaRecorder !== 'undefined' &&
+      !!navigator.mediaDevices?.getUserMedia
+    )
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── Send message ─────────────────────────────────────────────────────────
+  // ── Core send logic ───────────────────────────────────────────────────────
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim()
-    if (!text || isStreaming) return
+  const sendToBot = useCallback(async (opts: {
+    text: string
+    displayText?: string  // shown in user bubble (for voice: transcription may differ)
+    voiceData?: string
+  }) => {
+    if (isStreaming) return
 
-    setInput('')
     setIsStreaming(true)
-
-    // Add user message
     const userMsgId = `user-${Date.now()}`
-    setMessages(prev => [...prev, { id: userMsgId, role: 'user', content: text }])
+    // Show display text immediately; updated to transcription later if voice
+    setMessages(prev => [
+      ...prev,
+      { id: userMsgId, role: 'user', content: opts.displayText ?? opts.text },
+    ])
 
-    // Placeholder for bot streaming response
     const botMsgId = `bot-${Date.now()}`
+    // Bot message starts as streaming placeholder (no content yet — TypingIndicator shows)
     setMessages(prev => [...prev, { id: botMsgId, role: 'bot', content: '', streaming: true }])
 
     const controller = new AbortController()
     abortRef.current = controller
 
+    const body = opts.voiceData
+      ? { voice_data: opts.voiceData, voice_filename: 'test-recording.webm', sessionId }
+      : { message: opts.text, sessionId }
+
     try {
       const response = await fetch(`/api/testing/${botId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       })
 
@@ -162,12 +185,19 @@ export function TestingChat({
         throw new Error(err.error ?? `HTTP ${response.status}`)
       }
 
-      // Read response headers immediately (available before stream body)
       const intentHeader = response.headers.get('X-Intent') ?? ''
       const languageHeader = response.headers.get('X-Language') ?? 'en'
       const ragFoundHeader = response.headers.get('X-Rag-Found') === 'true'
+      const transcription = response.headers.get('X-Transcription')
 
-      // Stream the response body
+      // Update user bubble with actual transcription if voice
+      if (transcription) {
+        setMessages(prev =>
+          prev.map(m => m.id === userMsgId ? { ...m, content: transcription } : m)
+        )
+      }
+
+      // Stream response body
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
@@ -184,13 +214,12 @@ export function TestingChat({
         }
       }
 
-      // Mark streaming done
       setMessages(prev =>
         prev.map(m => m.id === botMsgId ? { ...m, streaming: false } : m)
       )
       setIsStreaming(false)
 
-      // Fetch pipeline debug — wait briefly for fire-and-forget DB write to settle
+      // Fetch pipeline debug — wait for fire-and-forget DB write to settle
       await new Promise(r => setTimeout(r, 700))
 
       const fetchDebug = async (attempt = 1): Promise<void> => {
@@ -201,16 +230,20 @@ export function TestingChat({
           await new Promise(r => setTimeout(r, 1000))
           return fetchDebug(attempt + 1)
         }
-        if (!debugRes.ok) return
-
-        const data = await debugRes.json() as DebugResult & {
-          intent: string | null
-          language: string
-          ragFound: boolean
-          latencyMs: number
-          totalDurationMs: number
+        if (!debugRes.ok) {
+          // Fallback: report what we know from headers
+          onResponseComplete({
+            steps: [],
+            ragChunks: [],
+            intent: intentHeader || null,
+            language: languageHeader,
+            ragFound: ragFoundHeader,
+            latencyMs: 0,
+            totalDurationMs: 0,
+          })
+          return
         }
-
+        const data = await debugRes.json() as DebugResult
         onResponseComplete({
           steps: data.steps ?? [],
           ragChunks: data.ragChunks ?? [],
@@ -235,28 +268,82 @@ export function TestingChat({
       )
       setIsStreaming(false)
     }
-  }, [botId, input, isStreaming, onResponseComplete, sessionId])
+  }, [botId, isStreaming, onResponseComplete, sessionId])
+
+  // ── Text send ─────────────────────────────────────────────────────────────
+
+  const handleSend = useCallback(() => {
+    const text = input.trim()
+    if (!text || isStreaming) return
+    setInput('')
+    void sendToBot({ text })
+  }, [input, isStreaming, sendToBot])
+
+  // ── Voice recording ───────────────────────────────────────────────────────
+
+  const handleVoiceToggle = useCallback(async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop()
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1]
+          void sendToBot({ text: '', displayText: '🎤 Voice message…', voiceData: base64 })
+        }
+        reader.readAsDataURL(blob)
+        setIsRecording(false)
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch (err) {
+      console.error('[voice]', err)
+      setIsRecording(false)
+    }
+  }, [isRecording, sendToBot])
 
   // ── Clear conversation ───────────────────────────────────────────────────
 
   function handleClear() {
     abortRef.current?.abort()
+    if (isRecording) mediaRecorderRef.current?.stop()
     setIsStreaming(false)
+    setIsRecording(false)
     setInput('')
-    const welcomeText = greeting ?? `Hi! I'm ${botName}. How can I help you today?`
-    setMessages([{ id: 'welcome', role: 'bot', content: welcomeText }])
+    setMessages([{ id: 'welcome', role: 'bot', content: defaultWelcome }])
     onSessionReset()
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  // Only hide the bot bubble when it has no content yet (TypingIndicator takes over)
+  const visibleMessages = messages.filter(m => !(m.streaming && !m.content))
+  const waitingForFirstByte =
+    isStreaming &&
+    messages.at(-1)?.streaming === true &&
+    !messages.at(-1)?.content
+
   return (
     <>
-      {/* Animation keyframes — scoped to this component */}
       <style>{`
         @keyframes bb-dot-bounce {
-          0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-          40% { transform: translateY(-5px); opacity: 1; }
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+          30% { transform: translateY(-6px); opacity: 1; }
         }
       `}</style>
 
@@ -282,6 +369,14 @@ export function TestingChat({
             >
               testing
             </span>
+            {initialMessages && initialMessages.length > 0 && (
+              <span
+                className="text-xs px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--bb-primary)' }}
+              >
+                loaded session
+              </span>
+            )}
           </div>
           <button
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
@@ -300,7 +395,7 @@ export function TestingChat({
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col">
-          {messages.map(msg => (
+          {visibleMessages.map(msg => (
             <div
               key={msg.id}
               className={`flex mb-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -317,28 +412,13 @@ export function TestingChat({
                       }
                 }
               >
-                {msg.role === 'bot'
-                  ? renderMarkdown(msg.content || (msg.streaming ? '' : ''))
-                  : msg.content
-                }
-                {msg.streaming && !msg.content && (
-                  /* Still waiting for first byte — show inline cursor */
-                  <span
-                    className="inline-block w-0.5 h-3.5 ml-0.5 align-middle"
-                    style={{
-                      background: 'var(--bb-primary)',
-                      animation: 'bb-dot-bounce 1s infinite',
-                    }}
-                  />
-                )}
+                {msg.role === 'bot' ? renderMarkdown(msg.content) : msg.content}
               </div>
             </div>
           ))}
 
-          {/* Typing indicator before first byte arrives */}
-          {isStreaming && messages[messages.length - 1]?.streaming && !messages[messages.length - 1]?.content && (
-            <TypingIndicator />
-          )}
+          {/* Typing indicator — shown while waiting for first byte */}
+          {waitingForFirstByte && <TypingIndicator />}
 
           <div ref={messagesEndRef} />
         </div>
@@ -348,6 +428,25 @@ export function TestingChat({
           className="flex items-end gap-2 px-4 py-3 flex-shrink-0"
           style={{ borderTop: '1px solid var(--bb-border)', background: 'var(--bb-surface)' }}
         >
+          {voiceSupported && (
+            <button
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
+              style={{
+                background: isRecording
+                  ? 'rgba(239,68,68,0.15)'
+                  : 'var(--bb-surface-2)',
+                color: isRecording ? 'var(--bb-danger)' : 'var(--bb-text-3)',
+                border: `1px solid ${isRecording ? 'rgba(239,68,68,0.3)' : 'var(--bb-border)'}`,
+                animation: isRecording ? 'bb-dot-bounce 1s infinite' : 'none',
+              }}
+              title={isRecording ? 'Stop recording' : 'Record voice message'}
+              disabled={isStreaming && !isRecording}
+              onClick={handleVoiceToggle}
+            >
+              {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
+            </button>
+          )}
+
           <textarea
             ref={inputRef}
             rows={1}
@@ -361,7 +460,7 @@ export function TestingChat({
             }}
             placeholder="Type a test message… (Enter to send)"
             value={input}
-            disabled={isStreaming}
+            disabled={isStreaming || isRecording}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -373,10 +472,10 @@ export function TestingChat({
           <button
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
             style={{
-              background: input.trim() && !isStreaming ? 'var(--bb-primary)' : 'var(--bb-surface-3)',
-              color: input.trim() && !isStreaming ? '#fff' : 'var(--bb-text-3)',
+              background: input.trim() && !isStreaming && !isRecording ? 'var(--bb-primary)' : 'var(--bb-surface-3)',
+              color: input.trim() && !isStreaming && !isRecording ? '#fff' : 'var(--bb-text-3)',
             }}
-            disabled={!input.trim() || isStreaming}
+            disabled={!input.trim() || isStreaming || isRecording}
             onClick={handleSend}
           >
             <Send size={14} />

@@ -1,3 +1,4 @@
+import OpenAI from 'openai'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -12,8 +13,12 @@ export const maxDuration = 30
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const TestingChatSchema = z.object({
-  message: z.string().min(1).max(4000),
+  message: z.string().min(1).max(4000).optional(),
+  voice_data: z.string().optional(),    // base64 audio
+  voice_filename: z.string().optional(),
   sessionId: z.string().uuid(),
+}).refine((d) => d.message || d.voice_data, {
+  message: 'Either message or voice_data is required',
 })
 
 // ─── POST: session-authenticated testing chat ─────────────────────────────────
@@ -52,8 +57,36 @@ export async function POST(
       return Response.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { message, sessionId } = parsed.data
+    let { message, sessionId } = parsed.data
+    const { voice_data, voice_filename } = parsed.data
     const service = createServiceClient()
+
+    // Transcribe voice if provided
+    let transcription: string | null = null
+    if (voice_data) {
+      try {
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+        const audioBuffer = Buffer.from(voice_data, 'base64')
+        const audioFile = new File(
+          [audioBuffer],
+          voice_filename ?? 'recording.webm',
+          { type: 'audio/webm' }
+        )
+        const result = await openai.audio.transcriptions.create({
+          model: 'whisper-1',
+          file: audioFile,
+        })
+        transcription = result.text.trim()
+        message = transcription
+      } catch (err) {
+        console.error('[testing/chat voice transcription]', err)
+        return Response.json({ error: 'Voice transcription failed' }, { status: 422 })
+      }
+    }
+
+    if (!message) {
+      return Response.json({ error: 'No message to process' }, { status: 400 })
+    }
 
     // Fetch bot config — verify it exists
     const { data: bot, error: botError } = await service
@@ -129,6 +162,7 @@ export async function POST(
       'X-Intent': result.intent ?? '',
       'X-Language': result.language,
       'X-Rag-Found': result.ragFound ? 'true' : 'false',
+      ...(transcription ? { 'X-Transcription': transcription } : {}),
     })
 
     if (stream) {

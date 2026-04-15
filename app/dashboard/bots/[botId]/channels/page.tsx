@@ -20,6 +20,7 @@ interface ChannelCardProps {
   description: string
   config: ChannelConfig | null
   onConfigure: () => void
+  note?: string
 }
 
 function StatusBadge({ active }: { active: boolean }) {
@@ -37,7 +38,7 @@ function StatusBadge({ active }: { active: boolean }) {
   )
 }
 
-function ChannelCard({ channel, icon, title, description, config, onConfigure }: ChannelCardProps) {
+function ChannelCard({ channel, icon, title, description, config, onConfigure, note }: ChannelCardProps) {
   return (
     <div className="rounded-xl p-5 border flex flex-col gap-4"
       style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)' }}>
@@ -54,6 +55,20 @@ function ChannelCard({ channel, icon, title, description, config, onConfigure }:
         </div>
         <StatusBadge active={!!config?.is_active} />
       </div>
+
+      {note && (
+        <div
+          className="flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs"
+          style={{
+            background: 'rgba(34,211,238,0.05)',
+            border: '1px solid rgba(34,211,238,0.15)',
+            color: 'var(--bb-text-2)',
+          }}
+        >
+          <span className="flex-shrink-0 mt-0.5">🎤</span>
+          <span>{note}</span>
+        </div>
+      )}
 
       {config?.updated_at && (
         <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
@@ -427,6 +442,7 @@ export default function ChannelsPage() {
           description="Connect via WhatsApp Business API (Meta)"
           config={waConfig}
           onConfigure={() => setActiveDrawer('whatsapp')}
+          note="Voice messages are supported. When a customer sends a voice note, it is automatically transcribed and processed. Ensure your n8n workflow passes the audio URL in the voice_url field of the webhook payload."
         />
 
         <ChannelCard
@@ -436,6 +452,7 @@ export default function ChannelsPage() {
           description="Connect via Telegram Bot API"
           config={tgConfig}
           onConfigure={() => setActiveDrawer('telegram')}
+          note="Voice messages are supported. When a customer sends a voice note, it is automatically transcribed and processed. Ensure your n8n workflow passes the audio URL in the voice_url field of the webhook payload."
         />
 
         <ChannelCard
