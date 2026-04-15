@@ -8,10 +8,12 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 ]
 
-// Overrides for the testing console — microphone needed for voice recording
-const testingHeaders = [
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
-]
+// Security headers with microphone allowed (for testing console)
+const securityHeadersWithMic = securityHeaders.map(h =>
+  h.key === 'Permissions-Policy'
+    ? { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' }
+    : h
+)
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['voyageai', 'pdf-parse', 'unpdf', 'pdf2json', 'mammoth', 'sharp', 'cheerio', '@anthropic-ai/sdk', 'gpt-tokenizer'],
@@ -20,8 +22,32 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Testing console — must come before the broad rule so it takes effect exclusively
       {
-        source: '/((?!chat).*)',
+        source: '/dashboard/bots/:botId/testing',
+        headers: [
+          ...securityHeadersWithMic,
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+      {
+        source: '/((?!chat|dashboard/bots).*)',
+        headers: [
+          ...securityHeaders,
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+      // dashboard routes (non-testing)
+      {
+        source: '/dashboard/:path((?!bots/[^/]+/testing).*)',
+        headers: [
+          ...securityHeaders,
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+      // bot routes except testing
+      {
+        source: '/dashboard/bots/:botId/:path((?!testing).*)',
         headers: [
           ...securityHeaders,
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -33,11 +59,6 @@ const nextConfig: NextConfig = {
           ...securityHeaders,
           { key: 'X-Frame-Options', value: 'ALLOWALL' },
         ],
-      },
-      // Testing console needs microphone access for voice recording
-      {
-        source: '/dashboard/bots/:botId/testing',
-        headers: testingHeaders,
       },
     ]
   },
