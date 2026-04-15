@@ -45,22 +45,29 @@ export async function PATCH(
   try {
     const serviceClient = createServiceClient()
 
-    // Verify bot belongs to this user's tenant
     const { data: profile } = await serviceClient
       .from('profiles')
-      .select('tenant_id')
+      .select('tenant_id, role')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.tenant_id) {
+    const isSuperAdmin = profile?.role === 'super_admin'
+
+    // Super admins can update any bot; tenant users are scoped to their tenant
+    if (!isSuperAdmin && !profile?.tenant_id) {
       return Response.json({ error: 'No tenant found' }, { status: 400 })
     }
 
-    const { data: bot, error } = await serviceClient
+    let query = serviceClient
       .from('bots')
       .update({ ...parsed.data, updated_at: new Date().toISOString() })
       .eq('id', botId)
-      .eq('tenant_id', profile.tenant_id)
+
+    if (!isSuperAdmin) {
+      query = query.eq('tenant_id', profile!.tenant_id!)
+    }
+
+    const { data: bot, error } = await query
       .select('id, name, is_active, updated_at')
       .single()
 
