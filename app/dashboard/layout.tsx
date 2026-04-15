@@ -53,23 +53,31 @@ export default async function DashboardLayout({
   // DO NOT redirect('/login') here — would cause an infinite loop with proxy.ts
   // (proxy sees authenticated user → redirects back to /dashboard/overview → layout → redirect → loop)
 
-  // Fetch bots for this tenant (or all bots for super_admin)
-  let botsQuery = serviceClient
-    .from('bots')
-    .select('id, name, slug, is_active, avatar_url, feature_flags')
-    .order('created_at', { ascending: true })
+  // Fetch bots — NEVER return all bots to a non-super_admin with no tenant_id
+  let bots: Bot[] = []
+  const typedProfile = profile as Profile
 
-  if ((profile as Profile).role !== 'super_admin' && (profile as Profile).tenant_id) {
-    botsQuery = botsQuery.eq('tenant_id', (profile as Profile).tenant_id!)
+  if (typedProfile.role === 'super_admin') {
+    const { data } = await serviceClient
+      .from('bots')
+      .select('id, name, slug, is_active, avatar_url, feature_flags')
+      .order('created_at', { ascending: true })
+    bots = (data ?? []) as Bot[]
+  } else if (typedProfile.tenant_id) {
+    const { data } = await serviceClient
+      .from('bots')
+      .select('id, name, slug, is_active, avatar_url, feature_flags')
+      .eq('tenant_id', typedProfile.tenant_id)
+      .order('created_at', { ascending: true })
+    bots = (data ?? []) as Bot[]
   }
-
-  const { data: bots } = await botsQuery
+  // else: no tenant_id → bots stays [] — never leak other tenants' bots
 
   return (
     <LanguageProvider defaultLang={(profile as Profile).language_preference ?? 'en'}>
       <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bb-bg)' }}>
         <Sidebar
-          bots={(bots ?? []) as Bot[]}
+          bots={bots}
           role={(profile as Profile).role}
           userEmail={user.email ?? ''}
           displayName={(profile as Profile).display_name ?? user.email ?? ''}
