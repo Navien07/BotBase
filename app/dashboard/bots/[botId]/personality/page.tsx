@@ -394,13 +394,13 @@ export default function PersonalityPage() {
           value={form.system_prompt ?? ''}
           onChange={(e) => setField('system_prompt', e.target.value)}
           rows={8}
-          maxLength={2000}
+          maxLength={8000}
           placeholder="Enter your system prompt..."
           className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none focus:ring-1 resize-y font-mono"
           style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)', color: 'var(--bb-text-1)' }}
         />
-        <p className="text-xs mt-1.5 text-right" style={{ color: charCount > 1800 ? 'var(--bb-warning)' : 'var(--bb-text-3)' }}>
-          {charCount} / 2000
+        <p className="text-xs mt-1.5 text-right" style={{ color: charCount > 7000 ? 'var(--bb-warning)' : 'var(--bb-text-3)' }}>
+          {charCount} / 8000
         </p>
       </section>
 

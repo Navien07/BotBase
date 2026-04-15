@@ -43,7 +43,7 @@ export async function GET(
 
 const PersonalitySchema = z.object({
   bot_name: z.string().min(1).max(100),
-  system_prompt: z.string().max(2000).nullable().optional(),
+  system_prompt: z.string().max(8000).nullable().optional(),
   personality_preset: z.enum(['professional', 'friendly', 'concise', 'custom']),
   tone_formal: z.boolean(),
   tone_verbose: z.boolean(),
