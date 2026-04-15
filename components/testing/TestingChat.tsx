@@ -3,6 +3,29 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, RotateCcw, Mic, MicOff } from 'lucide-react'
 
+// ─── SpeechRecognition types (not in TS DOM lib) ──────────────────────────────
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string
+}
+interface SpeechRecognitionInstance {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  onstart: (() => void) | null
+  onend: (() => void) | null
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null
+  onresult: ((e: SpeechRecognitionEvent) => void) | null
+  start(): void
+  stop(): void
+}
+interface SpeechRecognitionConstructor {
+  new(): SpeechRecognitionInstance
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NormalizedStep {
@@ -130,14 +153,11 @@ export function TestingChat({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
   useEffect(() => {
-    setVoiceSupported(
-      typeof MediaRecorder !== 'undefined' &&
-      !!navigator.mediaDevices?.getUserMedia
-    )
+    const w = window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
+    setVoiceSupported(!!(w.SpeechRecognition ?? w.webkitSpeechRecognition))
   }, [])
 
   useEffect(() => {
@@ -146,31 +166,23 @@ export function TestingChat({
 
   // ── Core send logic ───────────────────────────────────────────────────────
 
-  const sendToBot = useCallback(async (opts: {
-    text: string
-    displayText?: string  // shown in user bubble (for voice: transcription may differ)
-    voiceData?: string
-  }) => {
+  const sendToBot = useCallback(async (opts: { text: string }) => {
     if (isStreaming) return
 
     setIsStreaming(true)
     const userMsgId = `user-${Date.now()}`
-    // Show display text immediately; updated to transcription later if voice
     setMessages(prev => [
       ...prev,
-      { id: userMsgId, role: 'user', content: opts.displayText ?? opts.text },
+      { id: userMsgId, role: 'user', content: opts.text },
     ])
 
     const botMsgId = `bot-${Date.now()}`
-    // Bot message starts as streaming placeholder (no content yet — TypingIndicator shows)
     setMessages(prev => [...prev, { id: botMsgId, role: 'bot', content: '', streaming: true }])
 
     const controller = new AbortController()
     abortRef.current = controller
 
-    const body = opts.voiceData
-      ? { voice_data: opts.voiceData, voice_filename: 'test-recording.webm', sessionId }
-      : { message: opts.text, sessionId }
+    const body = { message: opts.text, sessionId }
 
     try {
       const response = await fetch(`/api/testing/${botId}/chat`, {
@@ -188,7 +200,6 @@ export function TestingChat({
       const intentHeader = response.headers.get('X-Intent') ?? ''
       const languageHeader = response.headers.get('X-Language') ?? 'en'
       const ragFoundHeader = response.headers.get('X-Rag-Found') === 'true'
-      const transcription = response.headers.get('X-Transcription')
       const stepsB64 = response.headers.get('X-Pipeline-Steps')
       const totalDurationHeader = Number(response.headers.get('X-Total-Duration') ?? '0')
 
@@ -200,13 +211,6 @@ export function TestingChat({
         } catch {
           // ignore malformed header
         }
-      }
-
-      // Update user bubble with actual transcription if voice
-      if (transcription) {
-        setMessages(prev =>
-          prev.map(m => m.id === userMsgId ? { ...m, content: transcription } : m)
-        )
       }
 
       // Stream response body
@@ -295,47 +299,41 @@ export function TestingChat({
 
   // ── Voice recording ───────────────────────────────────────────────────────
 
-  const handleVoiceToggle = useCallback(async () => {
+  const handleVoiceToggle = useCallback(() => {
     if (isRecording) {
-      mediaRecorderRef.current?.stop()
+      recognitionRef.current?.stop()
       return
     }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream)
-      mediaRecorderRef.current = mediaRecorder
-      audioChunksRef.current = []
+    const w = window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition
+    if (!SR) return
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data)
-      }
+    const recognition = new SR()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognitionRef.current = recognition
 
-      mediaRecorder.onstop = () => {
-        stream.getTracks().forEach(t => t.stop())
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1]
-          void sendToBot({ text: '', displayText: '🎤 Voice message…', voiceData: base64 })
-        }
-        reader.readAsDataURL(blob)
-        setIsRecording(false)
-      }
-
-      mediaRecorder.start()
-      setIsRecording(true)
-    } catch (err) {
-      console.error('[voice]', err)
+    recognition.onstart = () => setIsRecording(true)
+    recognition.onend = () => setIsRecording(false)
+    recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
+      console.error('[voice]', e.error)
       setIsRecording(false)
     }
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0][0].transcript.trim()
+      if (transcript) void sendToBot({ text: transcript })
+    }
+
+    recognition.start()
   }, [isRecording, sendToBot])
 
   // ── Clear conversation ───────────────────────────────────────────────────
 
   function handleClear() {
     abortRef.current?.abort()
-    if (isRecording) mediaRecorderRef.current?.stop()
+    if (isRecording) recognitionRef.current?.stop()
     setIsStreaming(false)
     setIsRecording(false)
     setInput('')
