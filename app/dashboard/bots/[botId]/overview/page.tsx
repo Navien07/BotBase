@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { MessageSquare, Users, Calendar, TrendingUp } from 'lucide-react'
 import { SnapshotStrip } from '@/components/analytics/SnapshotStrip'
+import { BotConversationTrend } from '@/components/analytics/BotConversationTrend'
 
 interface Props {
   params: Promise<{ botId: string }>
@@ -64,14 +65,7 @@ export default async function BotOverviewPage({ params }: Props) {
         ))}
       </div>
 
-      <div
-        className="rounded-xl border p-6 flex items-center justify-center"
-        style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)', minHeight: 200 }}
-      >
-        <p className="text-sm" style={{ color: 'var(--bb-text-3)' }}>
-          Conversation trend chart — Phase 03
-        </p>
-      </div>
+      <BotConversationTrend botId={botId} />
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { Wifi, WifiOff } from 'lucide-react'
 import { BotTabNav } from '@/components/layout/BotTabNav'
+import { BotStatusToggle } from '@/components/layout/BotStatusToggle'
 import type { Bot } from '@/types/database'
 
 interface BotLayoutProps {
@@ -63,18 +63,7 @@ export default async function BotLayout({ children, params }: BotLayoutProps) {
             <h2 className="font-semibold text-base" style={{ color: 'var(--bb-text-1)' }}>
               {(bot as Bot).name}
             </h2>
-            <span
-              className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
-              style={{
-                background: (bot as Bot).is_active ? 'rgba(34,197,94,0.1)' : 'var(--bb-surface-3)',
-                color: (bot as Bot).is_active ? 'var(--bb-success)' : 'var(--bb-text-3)',
-              }}
-            >
-              {(bot as Bot).is_active
-                ? <><Wifi size={10} /> Live</>
-                : <><WifiOff size={10} /> Inactive</>
-              }
-            </span>
+            <BotStatusToggle botId={botId} initialActive={(bot as Bot).is_active} />
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs" style={{ color: 'var(--bb-text-3)' }}>

@@ -231,6 +231,7 @@ export default function SettingsPage() {
           slug: settings.slug,
           timezone: settings.timezone,
           default_language: settings.default_language,
+          is_active: settings.is_active,
           feature_flags: settings.feature_flags,
         }),
       })
@@ -275,6 +276,25 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-6 pb-10">
+
+      {/* General */}
+      {/* Bot Status */}
+      <section className="rounded-xl border p-6" style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)' }}>
+        <SectionHeader>Bot Status</SectionHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--bb-text-1)' }}>
+              {settings.is_active ? 'Active' : 'Inactive'}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--bb-text-3)' }}>
+              {settings.is_active
+                ? 'Bot is live and responding to messages.'
+                : 'Bot is paused. It will not respond to any messages.'}
+            </p>
+          </div>
+          <Toggle value={settings.is_active} onChange={(v) => setField('is_active', v)} />
+        </div>
+      </section>
 
       {/* General */}
       <section className="rounded-xl border p-6" style={{ background: 'var(--bb-surface)', borderColor: 'var(--bb-border)' }}>

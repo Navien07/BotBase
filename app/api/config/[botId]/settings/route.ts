@@ -9,6 +9,7 @@ const SettingsSchema = z.object({
   slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   timezone: z.string().min(1),
   default_language: z.enum(['en', 'bm', 'zh']),
+  is_active: z.boolean().optional(),
   feature_flags: z.object({
     booking_enabled: z.boolean(),
     booking_type: z.enum(['appointment', 'table', 'property_viewing']),
