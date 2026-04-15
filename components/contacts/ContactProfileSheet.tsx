@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { X, User, Phone, Mail, Tag, MessageSquare, Calendar, Edit2, Check } from 'lucide-react'
+import { X, User, Phone, Mail, Tag, MessageSquare, Calendar, Edit2, Check, Sparkles, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
 import type { Contact, LeadStage } from '@/types/database'
 
 const STAGE_COLORS: Record<LeadStage, { bg: string; text: string }> = {
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function ContactProfileSheet({ contact, botId, onClose, onUpdate }: Props) {
+  const router = useRouter()
   const [editing, setEditing] = useState<Record<string, boolean>>({})
   const [fields, setFields] = useState({
     name: contact.name ?? '',
@@ -55,6 +57,8 @@ export function ContactProfileSheet({ contact, botId, onClose, onUpdate }: Props
   const [bookings, setBookings] = useState<Booking[] | null>(null)
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
 
   async function loadHistory() {
     if (historyLoaded) return
@@ -68,6 +72,22 @@ export function ContactProfileSheet({ contact, botId, onClose, onUpdate }: Props
       }
     } catch {
       // non-blocking
+    }
+  }
+
+  async function fetchAiSummary() {
+    if (summaryLoading || aiSummary) return
+    setSummaryLoading(true)
+    try {
+      const res = await fetch(`/api/contacts/${botId}/${contact.id}/summary`)
+      if (res.ok) {
+        const data = await res.json() as { summary: string | null }
+        setAiSummary(data.summary)
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setSummaryLoading(false)
     }
   }
 
@@ -174,6 +194,36 @@ export function ContactProfileSheet({ contact, botId, onClose, onUpdate }: Props
                 style={{ width: `${contact.lead_score}%`, background: 'var(--bb-primary)' }}
               />
             </div>
+          </div>
+
+          {/* AI Insight */}
+          <div
+            className="rounded-lg p-3"
+            style={{ background: 'rgba(34,211,238,0.05)', border: '1px solid rgba(34,211,238,0.15)' }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium flex items-center gap-1.5" style={{ color: 'var(--bb-accent)' }}>
+                <Sparkles size={11} /> AI Insight
+              </span>
+              <button
+                className="text-xs px-2 py-0.5 rounded transition-colors"
+                style={{
+                  background: summaryLoading ? 'var(--bb-surface-3)' : 'rgba(34,211,238,0.1)',
+                  color: summaryLoading ? 'var(--bb-text-3)' : 'var(--bb-accent)',
+                }}
+                onClick={fetchAiSummary}
+                disabled={summaryLoading}
+              >
+                {summaryLoading ? 'Analysing…' : aiSummary ? 'Refresh' : 'Generate'}
+              </button>
+            </div>
+            {aiSummary ? (
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--bb-text-2)' }}>{aiSummary}</p>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
+                {summaryLoading ? 'Generating summary from conversations…' : 'Click Generate to get an AI summary of what this contact asked about.'}
+              </p>
+            )}
           </div>
 
           {/* Editable fields */}
@@ -302,16 +352,26 @@ export function ContactProfileSheet({ contact, botId, onClose, onUpdate }: Props
                   <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>No conversations yet</p>
                 ) : (
                   conversations.map((c) => (
-                    <div
+                    <button
                       key={c.id}
-                      className="text-xs p-2 rounded"
+                      className="w-full text-xs p-2 rounded text-left transition-colors group"
                       style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)' }}
+                      onClick={() => {
+                        onClose()
+                        router.push(`/dashboard/bots/${botId}/conversations?id=${c.id}`)
+                      }}
                     >
-                      <div className="flex justify-between" style={{ color: 'var(--bb-text-2)' }}>
+                      <div className="flex items-center justify-between" style={{ color: 'var(--bb-text-2)' }}>
                         <span className="capitalize">{c.channel}</span>
-                        <span style={{ color: 'var(--bb-text-3)' }}>{format(new Date(c.created_at), 'dd MMM yy')}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span style={{ color: 'var(--bb-text-3)' }}>{format(new Date(c.created_at), 'dd MMM yy')}</span>
+                          <ExternalLink size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--bb-primary)' }} />
+                        </div>
                       </div>
-                    </div>
+                      <p className="mt-0.5 text-xs" style={{ color: 'var(--bb-text-3)' }}>
+                        {c.language.toUpperCase()} · Tap to view
+                      </p>
+                    </button>
                   ))
                 )}
               </div>

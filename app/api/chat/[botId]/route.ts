@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { runPipeline } from '@/lib/pipeline'
 import { upsertContact } from '@/lib/crm/contacts'
+import { refreshLeadStageAndScore } from '@/lib/crm/lead-score'
 import type { PipelineContext } from '@/lib/pipeline'
 import type { Bot, Channel } from '@/types/database'
 
@@ -202,6 +203,9 @@ export async function POST(
         .eq('id', resolvedConversationId)
         .is('contact_id', null) // only update if not already set
         .then(() => null, () => null)
+
+      // Refresh lead score + auto-classify stage (fire-and-forget)
+      refreshLeadStageAndScore(contactId).catch(() => null)
     }
 
     const responseHeaders = new Headers({

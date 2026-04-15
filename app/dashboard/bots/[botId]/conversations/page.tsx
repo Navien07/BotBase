@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, use, type ReactNode } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow, format, isToday } from 'date-fns'
 import {
   MessageSquare, Search, User, Send, UserCheck, UserX,
-  Wifi, Phone, Filter, Bug, X, Sparkles,
+  Wifi, Phone, Filter, Bug, X, Sparkles, CheckCircle, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MessageBubble, type MessageData } from '@/components/conversation/MessageBubble'
@@ -230,6 +231,7 @@ export default function ConversationsPage({
   params: Promise<{ botId: string }>
 }) {
   const { botId } = use(params)
+  const searchParams = useSearchParams()
 
   // ── Auth / profile ─────────────────────────────────────────────────────────
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -310,6 +312,15 @@ export default function ConversationsPage({
   }, [botId, statusFilter, channelFilter, debouncedSearch, activeFilters])
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
+
+  // Auto-select conversation from ?id= query param
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (!id || conversations.length === 0 || selectedId) return
+    const match = conversations.find(c => c.id === id)
+    if (match) handleSelectConversation(match)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, searchParams])
 
   // ── Fetch thread ──────────────────────────────────────────────────────────
   const fetchThread = useCallback(async (convId: string) => {
@@ -431,6 +442,25 @@ export default function ConversationsPage({
       toast.error('Could not take over conversation')
     } finally {
       setTakingOver(false)
+    }
+  }
+
+  async function handleResolve(newStatus: 'closed' | 'open') {
+    if (!selectedId) return
+    try {
+      const res = await fetch(`/api/conversations/${botId}/${selectedId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (!res.ok) throw new Error('Update failed')
+      setSelectedConv(prev => prev ? { ...prev, status: newStatus } : prev)
+      setConversations(prev => prev.map(c =>
+        c.id === selectedId ? { ...c, status: newStatus } : c
+      ))
+      toast.success(newStatus === 'closed' ? 'Conversation resolved' : 'Conversation reopened')
+    } catch {
+      toast.error('Could not update conversation status')
     }
   }
 
@@ -758,6 +788,27 @@ export default function ConversationsPage({
               >
                 <Bug size={12} />
                 Debug
+              </button>
+            )}
+
+            {/* Mark as Resolved / Reopen */}
+            {selectedConv?.status === 'open' ? (
+              <button
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-shrink-0"
+                style={{ background: 'rgba(34,197,94,0.1)', color: 'var(--bb-success)' }}
+                onClick={() => handleResolve('closed')}
+                title="Mark conversation as resolved"
+              >
+                <CheckCircle size={14} /> Resolve
+              </button>
+            ) : (
+              <button
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-shrink-0"
+                style={{ background: 'var(--bb-surface-2)', color: 'var(--bb-text-2)', border: '1px solid var(--bb-border)' }}
+                onClick={() => handleResolve('open')}
+                title="Reopen conversation"
+              >
+                <RotateCcw size={14} /> Reopen
               </button>
             )}
 
