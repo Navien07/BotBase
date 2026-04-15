@@ -34,6 +34,7 @@ export default function ScriptEditorPage({ params }: ScriptEditorPageProps) {
   const [triggerType, setTriggerType] = useState('keyword')
   const [triggerValue, setTriggerValue] = useState('')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [canvasKey, setCanvasKey] = useState(0)
   const [showAI, setShowAI] = useState(false)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -123,11 +124,13 @@ export default function ScriptEditorPage({ params }: ScriptEditorPageProps) {
   function loadTemplate(data: FlowData) {
     if (flowData.nodes.length > 0 && !confirm('Replace current flow with template?')) return
     setFlowData(data)
+    setCanvasKey((k) => k + 1)
     setDirty(true)
   }
 
   function onAIGenerated(data: FlowData) {
     setFlowData(data)
+    setCanvasKey((k) => k + 1)
     setDirty(true)
     toast.success('Flow generated — auto-saving as draft')
     setTimeout(() => autoSave(data, name, triggerType, triggerValue), 500)
@@ -244,6 +247,7 @@ export default function ScriptEditorPage({ params }: ScriptEditorPageProps) {
           {/* Center: Canvas */}
           <div className="flex-1 min-w-0">
             <FlowCanvas
+              key={canvasKey}
               initialData={flowData}
               onChange={onFlowChange}
               selectedNodeId={selectedNodeId}
