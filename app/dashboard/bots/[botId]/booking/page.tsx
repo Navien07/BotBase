@@ -924,10 +924,10 @@ function ServicesTab({ botId }: { botId: string }) {
 
 interface BotMeta {
   feature_flags: {
-    booking_type: string
+    booking_type?: string
     reminder_24h?: boolean
   }
-  google_refresh_token: string | null
+  google_refresh_token?: string | null
 }
 
 // ─── Elken PIC Notifications Card ────────────────────────────────────────────
@@ -1043,7 +1043,7 @@ function SettingsTab({ botId }: { botId: string }) {
   useEffect(() => {
     fetch(`/api/config/${botId}/settings`)
       .then((r) => r.json())
-      .then((d: { bot?: BotMeta }) => setBot(d.bot ?? null))
+      .then((d: { settings?: BotMeta }) => setBot(d.settings ?? null))
       .catch(() => toast.error('Failed to load bot settings'))
       .finally(() => setLoading(false))
 
