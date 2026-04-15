@@ -313,6 +313,12 @@ export default function ConversationsPage({
 
   useEffect(() => { fetchConversations() }, [fetchConversations])
 
+  // Poll conversation list every 10s for new conversations
+  useEffect(() => {
+    const timer = setInterval(() => { fetchConversations() }, 10000)
+    return () => clearInterval(timer)
+  }, [fetchConversations])
+
   // Auto-select conversation from ?id= query param
   useEffect(() => {
     const id = searchParams.get('id')

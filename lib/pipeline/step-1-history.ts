@@ -7,6 +7,7 @@ export async function step1History(ctx: PipelineContext): Promise<StepResult> {
   const { data: messages, error } = await supabase
     .from('messages')
     .select('role, content')
+    .eq('conversation_id', ctx.conversationId)
     .eq('bot_id', ctx.botId)
     .order('created_at', { ascending: false })
     .limit(20)

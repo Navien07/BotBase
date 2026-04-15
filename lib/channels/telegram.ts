@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { decrypt } from '@/lib/crypto/tokens'
 import { runPipeline } from '@/lib/pipeline'
 import { upsertContact } from '@/lib/crm/contacts'
+import { refreshLeadStageAndScore } from '@/lib/crm/lead-score'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -178,6 +179,11 @@ export async function handleUpdate(
 
   if (response) {
     await sendMessage(chatId, response, botToken)
+  }
+
+  // Refresh lead score + stage after message processed (fire-and-forget)
+  if (contact?.id) {
+    refreshLeadStageAndScore(contact.id).catch(() => null)
   }
 }
 

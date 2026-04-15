@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, User, Phone, Mail, Tag, MessageSquare, Calendar, Edit2, Check, Sparkles, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -74,6 +74,9 @@ export function ContactProfileSheet({ contact, botId, onClose, onUpdate }: Props
       // non-blocking
     }
   }
+
+  // Auto-generate on mount
+  useEffect(() => { fetchAiSummary() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchAiSummary() {
     if (summaryLoading || aiSummary) return
