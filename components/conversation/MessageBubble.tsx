@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format, isToday } from 'date-fns'
 import { PipelineDebug, type PipelineDebugData } from './PipelineDebug'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,9 +83,14 @@ export function MessageBubble({
     showDebugByDefault ? 'pipeline' : 'response'
   )
 
-  const relTime = (() => {
-    try { return formatDistanceToNow(new Date(msg.created_at), { addSuffix: true }) }
-    catch { return '' }
+  const { relTime, absTime } = (() => {
+    try {
+      const d = new Date(msg.created_at)
+      return {
+        relTime: formatDistanceToNow(d, { addSuffix: true }),
+        absTime: isToday(d) ? format(d, 'HH:mm') : format(d, 'dd MMM · HH:mm'),
+      }
+    } catch { return { relTime: '', absTime: '' } }
   })()
 
   return (
@@ -120,7 +125,9 @@ export function MessageBubble({
 
         {/* ── Meta row ────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 px-0.5">
-          <span className="text-xs" style={{ color: 'var(--bb-text-3)' }}>{relTime}</span>
+          <span className="text-xs" style={{ color: 'var(--bb-text-3)' }}>{absTime}</span>
+          <span className="text-xs" style={{ color: 'var(--bb-text-3)', opacity: 0.5 }}>·</span>
+          <span className="text-xs" style={{ color: 'var(--bb-text-3)', opacity: 0.5 }}>{relTime}</span>
           {msg.sentiment && SENTIMENT_ICON[msg.sentiment] && (
             <span className="text-xs">{SENTIMENT_ICON[msg.sentiment]}</span>
           )}

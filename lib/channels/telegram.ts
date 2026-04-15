@@ -57,8 +57,10 @@ export async function handleUpdate(
   const chatId = message.chat.id
   const userId = String(message.from.id)
   const text = message.text
-  const name = [message.from.first_name, message.from.last_name]
-    .filter(Boolean).join(' ')
+  // Use first+last name; fall back to @username so contact is never anonymous
+  const displayName =
+    [message.from.first_name, message.from.last_name].filter(Boolean).join(' ') ||
+    (message.from.username ? `@${message.from.username}` : '')
 
   const supabase = createServiceClient()
 
@@ -67,7 +69,7 @@ export async function handleUpdate(
     botId,
     externalId: userId,
     channel: 'telegram',
-    name,
+    name: displayName || undefined,
   })
 
   const { data: channelConfig } = await supabase
@@ -118,6 +120,7 @@ export async function handleUpdate(
         channel: 'telegram',
         language: bot.default_language ?? 'en',
         metadata: {},
+        contact_id: contact?.id ?? null,
       })
       .select('id')
       .single()
