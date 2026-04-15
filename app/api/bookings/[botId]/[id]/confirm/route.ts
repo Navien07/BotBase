@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { createCalendarEvent } from '@/lib/booking/google-calendar'
 import { sendBookingConfirmation } from '@/lib/booking/notifications'
+import { dispatchAdminNotification } from '@/lib/tenants/elken/booking/notifications'
 import type { Booking, Bot } from '@/types/database'
 
 export async function POST(
@@ -69,6 +70,8 @@ export async function POST(
           }
         }
         sendBookingConfirmation(id).catch(console.error)
+        dispatchAdminNotification(botId, id, 'booking_confirmed')
+          .catch(err => console.error('[BookingConfirm] Elken admin notification failed:', err))
       } catch (e) {
         console.error('[booking confirm] side effects', e)
       }

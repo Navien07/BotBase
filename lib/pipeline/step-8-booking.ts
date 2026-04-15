@@ -7,11 +7,17 @@ import {
   buildPromptForStep,
 } from '@/lib/booking/state-machine'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getTenantBookingHandler } from '@/lib/tenants'
 import type { PipelineContext, StepResult } from './types'
 import type { BookingState, Service } from '@/lib/booking/types'
 
 export async function step8Booking(ctx: PipelineContext): Promise<StepResult> {
   const start = Date.now()
+
+  // ── Tenant plugin hook — runs before generic state machine ──────────────────
+  const tenantResult = await getTenantBookingHandler(ctx, start)
+  if (tenantResult !== null) return tenantResult
+
   const bookingEnabled = ctx.bot.feature_flags?.booking_enabled ?? false
   const supabase = createServiceClient()
 

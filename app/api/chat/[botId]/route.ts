@@ -5,6 +5,8 @@ import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { runPipeline } from '@/lib/pipeline'
 import { upsertContact } from '@/lib/crm/contacts'
 import { refreshLeadStageAndScore } from '@/lib/crm/lead-score'
+import { isTenantBot } from '@/lib/tenants'
+import { dispatchBrochure } from '@/lib/tenants/elken/booking/notifications'
 import type { PipelineContext } from '@/lib/pipeline'
 import type { Bot, Channel } from '@/types/database'
 
@@ -193,6 +195,30 @@ export async function POST(
 
     // Run pipeline
     const { stream, result } = await runPipeline(pipelineContext)
+
+    // Elken: fire-and-forget brochure dispatch for product/health intents
+    if (
+      isTenantBot(botId) &&
+      (result.intent === 'browse_product' || result.intent === 'health_issue') &&
+      pipelineContext.ragChunks.length > 0
+    ) {
+      const topChunk = pipelineContext.ragChunks[0]
+      void (async () => {
+        try {
+          const { data: doc } = await supabase
+            .from('documents')
+            .select('metadata')
+            .eq('id', topChunk.documentId)
+            .single()
+          const productName = (doc?.metadata as Record<string, string> | null)?.product_name
+          if (productName) {
+            await dispatchBrochure(botId, externalUserId, channel, productName, result.language)
+          }
+        } catch (err) {
+          console.error('[Brochure] Dispatch failed:', err)
+        }
+      })()
+    }
 
     // Allow contact upsert to settle, then link contact_id to conversation
     await contactPromise.catch(() => null)

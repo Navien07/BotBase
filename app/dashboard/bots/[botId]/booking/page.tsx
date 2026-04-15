@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, use } from 'react'
+import { ELKEN_BOT_ID } from '@/lib/tenants/elken/config'
 import {
   createColumnHelper,
   flexRender,
@@ -929,6 +930,110 @@ interface BotMeta {
   google_refresh_token: string | null
 }
 
+// ─── Elken PIC Notifications Card ────────────────────────────────────────────
+
+function ElkenPicCard({ botId }: { botId: string }) {
+  const [okr, setOkr] = useState('')
+  const [subang, setSubang] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/config/${botId}/pic-contacts`)
+      .then((r) => r.json())
+      .then((d: { okr?: string; subang?: string }) => {
+        setOkr(d.okr ?? '')
+        setSubang(d.subang ?? '')
+      })
+      .catch(() => toast.error('Failed to load PIC contacts'))
+  }, [botId])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/config/${botId}/pic-contacts`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ okr, subang }),
+      })
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        throw new Error(data.error ?? 'Failed to save')
+      }
+      toast.success('PIC numbers saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)' }}
+    >
+      <p className="text-sm font-medium mb-1" style={{ color: 'var(--bb-text-1)' }}>
+        PIC Notifications (Elken)
+      </p>
+      <p className="text-xs mb-4" style={{ color: 'var(--bb-text-3)' }}>
+        WhatsApp numbers to notify for each GenQi location when a booking is made.
+      </p>
+      <div className="flex flex-col gap-3">
+        <div>
+          <label className="block text-xs mb-1" style={{ color: 'var(--bb-text-2)' }}>
+            GenQi Old Klang Road PIC
+          </label>
+          <input
+            type="text"
+            value={okr}
+            onChange={(e) => setOkr(e.target.value)}
+            placeholder="+60122208396"
+            className="w-full text-sm px-3 py-2 rounded"
+            style={{
+              background: 'var(--bb-surface-3)',
+              border: '1px solid var(--bb-border)',
+              color: 'var(--bb-text-1)',
+              outline: 'none',
+            }}
+          />
+        </div>
+        <div>
+          <label className="block text-xs mb-1" style={{ color: 'var(--bb-text-2)' }}>
+            GenQi Subang PIC
+          </label>
+          <input
+            type="text"
+            value={subang}
+            onChange={(e) => setSubang(e.target.value)}
+            placeholder="+60122206215"
+            className="w-full text-sm px-3 py-2 rounded"
+            style={{
+              background: 'var(--bb-surface-3)',
+              border: '1px solid var(--bb-border)',
+              color: 'var(--bb-text-1)',
+              outline: 'none',
+            }}
+          />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="self-start text-xs px-3 py-1.5 rounded font-medium"
+          style={{
+            background: saving ? 'var(--bb-surface-3)' : 'var(--bb-primary)',
+            color: saving ? 'var(--bb-text-3)' : '#fff',
+            cursor: saving ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {saving ? 'Saving…' : 'Save PIC Numbers'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Settings Tab ─────────────────────────────────────────────────────────────
+
 function SettingsTab({ botId }: { botId: string }) {
   const [bot, setBot] = useState<BotMeta | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1042,6 +1147,9 @@ function SettingsTab({ botId }: { botId: string }) {
           </a>
         )}
       </div>
+
+      {/* PIC Notifications — Elken only */}
+      {botId === ELKEN_BOT_ID && <ElkenPicCard botId={botId} />}
     </div>
   )
 }

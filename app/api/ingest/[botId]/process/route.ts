@@ -5,6 +5,8 @@ import { extractText } from '@/lib/ingest/extractor'
 import { chunkText } from '@/lib/ingest/chunker'
 import { embedTexts } from '@/lib/ingest/embedder'
 import { isQnADocument, parseQnA } from '@/lib/ingest/qna-parser'
+import { ELKEN_BOT_ID } from '@/lib/tenants/elken/config'
+import { parseElkenFilename } from '@/lib/tenants/elken/kb/product-resolver'
 
 export const maxDuration = 60
 
@@ -78,6 +80,25 @@ export async function POST(
     return Response.json({ error: 'URL documents are processed inline' }, { status: 400 })
   }
 
+  // Elken: auto-populate metadata and brochure_url from filename convention
+  let elkenMetadata: Record<string, string> = {}
+  let brochureUrl: string | null = null
+
+  if (botId === ELKEN_BOT_ID) {
+    const parsed = parseElkenFilename(doc.filename)
+    if (parsed) {
+      elkenMetadata = {
+        category: parsed.category,
+        product_name: parsed.productName,
+        language: parsed.language,
+      }
+    }
+    const { data: urlData } = service.storage
+      .from('bot-files')
+      .getPublicUrl(doc.file_path)
+    brochureUrl = urlData.publicUrl
+  }
+
   // 2. Set status: processing
   await service
     .from('documents')
@@ -133,7 +154,15 @@ export async function POST(
 
       await service
         .from('documents')
-        .update({ status: 'ready', chunk_count: chunkCount, ingest_mode: 'qna' })
+        .update({
+          status: 'ready',
+          chunk_count: chunkCount,
+          ingest_mode: 'qna',
+          ...(Object.keys(elkenMetadata).length > 0 && {
+            metadata: { ...(doc.folder ? { folder: doc.folder } : {}), ...elkenMetadata },
+          }),
+          ...(brochureUrl !== null && { brochure_url: brochureUrl }),
+        })
         .eq('id', documentId)
         .eq('bot_id', botId)
     } else {
@@ -166,7 +195,15 @@ export async function POST(
 
       await service
         .from('documents')
-        .update({ status: 'ready', chunk_count: chunkCount, ingest_mode: 'chunks' })
+        .update({
+          status: 'ready',
+          chunk_count: chunkCount,
+          ingest_mode: 'chunks',
+          ...(Object.keys(elkenMetadata).length > 0 && {
+            metadata: { ...(doc.folder ? { folder: doc.folder } : {}), ...elkenMetadata },
+          }),
+          ...(brochureUrl !== null && { brochure_url: brochureUrl }),
+        })
         .eq('id', documentId)
         .eq('bot_id', botId)
     }
