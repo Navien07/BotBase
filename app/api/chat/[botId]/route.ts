@@ -157,6 +157,16 @@ export async function POST(
       throw new Error('Failed to resolve conversationId')
     }
 
+    // Stop bot if conversation is assigned to a human agent
+    const { data: convCheck } = await supabase
+      .from('conversations')
+      .select('agent_id')
+      .eq('id', resolvedConversationId)
+      .single()
+    if (convCheck?.agent_id) {
+      return Response.json({ message: 'Conversation assigned to agent' }, { status: 200 })
+    }
+
     // Build pipeline context
     const pipelineContext: PipelineContext = {
       botId,
@@ -183,8 +193,16 @@ export async function POST(
     // Run pipeline
     const { stream, result } = await runPipeline(pipelineContext)
 
-    // Allow contact upsert to settle
+    // Allow contact upsert to settle, then link contact_id to conversation
     await contactPromise.catch(() => null)
+    if (contactId) {
+      void supabase
+        .from('conversations')
+        .update({ contact_id: contactId })
+        .eq('id', resolvedConversationId)
+        .is('contact_id', null) // only update if not already set
+        .then(() => null, () => null)
+    }
 
     const responseHeaders = new Headers({
       'X-Conversation-Id': resolvedConversationId,

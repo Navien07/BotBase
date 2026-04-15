@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, use } from 'react'
+import { useState, useEffect, useRef, useCallback, use, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow, format, isToday } from 'date-fns'
 import {
@@ -63,6 +63,19 @@ function absTime(ts: string | null): string {
     const d = new Date(ts)
     return isToday(d) ? format(d, 'HH:mm') : format(d, 'dd MMM')
   } catch { return '' }
+}
+
+function dateGroupLabel(ts: string | null): string {
+  if (!ts) return 'Unknown'
+  try {
+    const d = new Date(ts)
+    const now = new Date()
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000)
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays < 7) return format(d, 'EEEE') // e.g. "Monday"
+    return format(d, 'dd MMM yyyy')
+  } catch { return 'Unknown' }
 }
 
 function contactName(contact: ConversationContact | null, channel: string): string {
@@ -323,6 +336,14 @@ export default function ConversationsPage({
     fetchThread(selectedId)
     setSummary(null)
   }, [selectedId, fetchThread])
+
+  // Auto-summarize when thread loads
+  useEffect(() => {
+    if (messages.length > 0 && !summary && !summaryLoading) {
+      fetchSummary()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length > 0 ? selectedId : null])
 
   // ── 1s silent poll: append new messages without loading flicker ────────────
   useEffect(() => {
@@ -602,14 +623,34 @@ export default function ConversationsPage({
               />
             </div>
           ) : (
-            conversations.map(conv => (
-              <ConversationRow
-                key={conv.id}
-                conv={conv}
-                isSelected={conv.id === selectedId}
-                onClick={() => handleSelectConversation(conv)}
-              />
-            ))
+            (() => {
+              const items: ReactNode[] = []
+              let lastGroup = ''
+              conversations.forEach(conv => {
+                const group = dateGroupLabel(conv.last_message_at)
+                if (group !== lastGroup) {
+                  lastGroup = group
+                  items.push(
+                    <div
+                      key={`group-${group}`}
+                      className="px-4 py-1.5 text-xs font-medium uppercase tracking-wider sticky top-0"
+                      style={{ color: 'var(--bb-text-3)', background: 'var(--bb-surface)', borderBottom: '1px solid var(--bb-border-subtle)' }}
+                    >
+                      {group}
+                    </div>
+                  )
+                }
+                items.push(
+                  <ConversationRow
+                    key={conv.id}
+                    conv={conv}
+                    isSelected={conv.id === selectedId}
+                    onClick={() => handleSelectConversation(conv)}
+                  />
+                )
+              })
+              return items
+            })()
           )}
         </div>
       </div>
