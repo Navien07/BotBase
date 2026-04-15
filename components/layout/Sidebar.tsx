@@ -176,13 +176,15 @@ export function Sidebar({ bots, role }: SidebarProps) {
             isActive={overviewActive}
             isCollapsed={collapsed}
           />
-          <NavLink
-            href="/dashboard/bots"
-            icon={BotIcon}
-            label={role === 'super_admin' ? 'All Bots' : t('Navigation.bots')}
-            isActive={botsActive}
-            isCollapsed={collapsed}
-          />
+          {role === 'super_admin' && (
+            <NavLink
+              href="/dashboard/bots"
+              icon={BotIcon}
+              label="All Bots"
+              isActive={botsActive}
+              isCollapsed={collapsed}
+            />
+          )}
           {role === 'super_admin' && (
             <NavLink
               href="/dashboard/admin/tenants"
