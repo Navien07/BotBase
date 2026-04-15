@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { verifySecretToken, handleUpdate, type TelegramUpdate } from '@/lib/channels/telegram'
 import { decrypt } from '@/lib/crypto/tokens'
+import { after } from 'next/server'
 
 export async function POST(req: Request) {
   // Rate limit by IP
@@ -36,10 +37,13 @@ export async function POST(req: Request) {
 
     const update = await req.json() as TelegramUpdate
 
-    // Respond 200 immediately — process async
-    handleUpdate(update, botId).catch((err: unknown) =>
-      console.error('[webhook/telegram POST] handleUpdate:', err)
-    )
+    // after() keeps the function alive after returning 200
+    // so the pipeline can complete without being killed by Vercel
+    after(async () => {
+      await handleUpdate(update, botId).catch((err: unknown) =>
+        console.error('[webhook/telegram POST] handleUpdate:', err)
+      )
+    })
 
     return new Response('OK', { status: 200 })
   } catch (error) {

@@ -60,14 +60,16 @@ export async function handleUpdate(
   const name = [message.from.first_name, message.from.last_name]
     .filter(Boolean).join(' ')
 
-  await upsertContact({
+  const supabase = createServiceClient()
+
+  // Upsert contact — capture id for pipeline
+  const contact = await upsertContact({
     botId,
     externalId: userId,
     channel: 'telegram',
     name,
   })
 
-  const supabase = createServiceClient()
   const { data: channelConfig } = await supabase
     .from('channel_configs')
     .select('config')
@@ -91,6 +93,42 @@ export async function handleUpdate(
 
   if (!bot) return
 
+  // Find or create conversation for this Telegram user
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('id, agent_id')
+    .eq('bot_id', botId)
+    .eq('external_user_id', userId)
+    .eq('channel', 'telegram')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  let conversationId: string
+  if (existing) {
+    // Human agent has taken over — don't let bot reply
+    if (existing.agent_id) return
+    conversationId = existing.id
+  } else {
+    const { data: newConv, error: convError } = await supabase
+      .from('conversations')
+      .insert({
+        bot_id: botId,
+        external_user_id: userId,
+        channel: 'telegram',
+        language: bot.default_language ?? 'en',
+        metadata: {},
+      })
+      .select('id')
+      .single()
+
+    if (convError || !newConv) {
+      console.error('[telegram] failed to create conversation:', convError)
+      return
+    }
+    conversationId = newConv.id
+  }
+
   const { stream, result } = await runPipeline({
     botId,
     message: text,
@@ -98,8 +136,8 @@ export async function handleUpdate(
     channel: 'telegram',
     bot,
     startedAt: Date.now(),
-    conversationId: '',
-    contactId: null,
+    conversationId,
+    contactId: contact?.id ?? null,
     language: bot.default_language ?? 'en',
     history: [],
     detectedIntent: null,
