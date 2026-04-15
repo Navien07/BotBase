@@ -1,29 +1,48 @@
 // VoyageAI embedder — voyage-3-large, 1024 dimensions
-// Note: voyageai ESM patch applied via postinstall (scripts/patch-voyageai-esm.cjs)
-// serverExternalPackages: ['voyageai'] in next.config.ts
+//
+// Uses raw fetch instead of the voyageai SDK.
+// Turbopack mangles class constructors even with serverExternalPackages,
+// and `new VoyageAI()` was resolving to "t is not a constructor" at runtime.
+// Raw fetch uses only Node.js built-ins — no class instantiation.
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const VoyageAI = require('voyageai').default ?? require('voyageai')
-
+const VOYAGE_BASE = 'https://api.voyageai.com/v1'
 const VOYAGE_MODEL = 'voyage-3-large'
 
-function getClient() {
+interface VoyageResponse {
+  data: Array<{ embedding: number[]; index: number }>
+  usage: { total_tokens: number }
+}
+
+async function fetchEmbeddings(texts: string[]): Promise<number[][]> {
   const apiKey = process.env.VOYAGE_API_KEY
   if (!apiKey) throw new Error('VOYAGE_API_KEY is not set')
-  return new VoyageAI({ apiKey })
+
+  const response = await fetch(`${VOYAGE_BASE}/embeddings`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ input: texts, model: VOYAGE_MODEL }),
+  })
+
+  if (!response.ok) {
+    const errText = await response.text()
+    throw new Error(`VoyageAI API error ${response.status}: ${errText}`)
+  }
+
+  const data = (await response.json()) as VoyageResponse
+  return data.data.sort((a, b) => a.index - b.index).map((d) => d.embedding)
 }
 
 export async function embedText(text: string): Promise<number[]> {
-  const client = getClient()
-  const result = await client.embed({ input: [text], model: VOYAGE_MODEL })
-  return result.data[0].embedding as number[]
+  const embeddings = await fetchEmbeddings([text])
+  return embeddings[0]
 }
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return []
-  const client = getClient()
-  const result = await client.embed({ input: texts, model: VOYAGE_MODEL })
-  return (result.data as Array<{ embedding: number[] }>).map((d) => d.embedding)
+  return fetchEmbeddings(texts)
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
