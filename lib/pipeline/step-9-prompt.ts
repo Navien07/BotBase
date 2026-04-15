@@ -30,7 +30,13 @@ export async function step9Prompt(ctx: PipelineContext): Promise<StepResult> {
   else toneInstructions.push('Do not use emojis.')
   if (toneInstructions.length > 0) parts.push(toneInstructions.join(' '))
 
-  // 4. Guardrails important rules
+  // 4. Guardrails — in-scope topics
+  const inScope = bot.guardrail_rules?.in_scope ?? []
+  if (inScope.length > 0) {
+    parts.push(`You are designed to answer questions about:\n${inScope.map((r) => `- ${r}`).join('\n')}`)
+  }
+
+  // 5. Guardrails — important rules
   const important = bot.guardrail_rules?.important ?? []
   if (important.length > 0) {
     parts.push(`Important rules:\n${important.map((r) => `- ${r}`).join('\n')}`)
