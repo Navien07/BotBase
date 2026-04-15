@@ -97,7 +97,7 @@ export function BookingFunnel({ leadStages, bookingStatus, loading }: BookingFun
   })).filter(r => r.count > 0 || STAGE_ORDER.indexOf(r.stage) === 0)
 
   const maxLeadCount = sortedLeads[0]?.count ?? 0
-  const totalBookings = bookingStatus.reduce((s, r) => s + r.count, 0)
+  const totalBookings = bookingStatus.reduce((s, r) => s + (r.count ?? 0), 0)
 
   return (
     <div
@@ -185,7 +185,8 @@ export function BookingFunnel({ leadStages, bookingStatus, loading }: BookingFun
               </div>
               <div className="flex flex-col gap-1.5 flex-1">
                 {bookingStatus.map(row => {
-                  const pct = Math.round((row.count / totalBookings) * 100)
+                  const count = row.count ?? 0
+                  const pct = totalBookings > 0 ? Math.round((count / totalBookings) * 100) : 0
                   return (
                     <div key={row.status} className="flex items-center gap-1.5">
                       <span
@@ -196,7 +197,7 @@ export function BookingFunnel({ leadStages, bookingStatus, loading }: BookingFun
                         {STATUS_LABELS[row.status] ?? row.status}
                       </span>
                       <span className="text-xs" style={{ color: '#f0f0f0' }}>
-                        {row.count}
+                        {count}
                       </span>
                       <span className="text-xs w-7 text-right" style={{ color: '#505050' }}>
                         {pct}%

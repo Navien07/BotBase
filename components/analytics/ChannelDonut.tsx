@@ -41,8 +41,8 @@ function SkeletonDonut() {
 export function ChannelDonut({ data, loading }: ChannelDonutProps) {
   if (loading) return <SkeletonDonut />
 
-  const total = data.reduce((sum, row) => sum + row.count, 0)
-  const isEmpty = total === 0
+  const total = data.reduce((sum, row) => sum + (row.count ?? 0), 0)
+  const isEmpty = !total
 
   return (
     <div
@@ -110,7 +110,8 @@ export function ChannelDonut({ data, loading }: ChannelDonutProps) {
           {/* Legend */}
           <div className="flex flex-col gap-2 flex-1">
             {data.map((row) => {
-              const pct = total > 0 ? Math.round((row.count / total) * 100) : 0
+              const count = row.count ?? 0
+              const pct = total > 0 ? Math.round((count / total) * 100) : 0
               return (
                 <div key={row.channel} className="flex items-center gap-2">
                   <span
@@ -121,7 +122,7 @@ export function ChannelDonut({ data, loading }: ChannelDonutProps) {
                     {CHANNEL_LABELS[row.channel] ?? row.channel}
                   </span>
                   <span className="text-xs font-medium" style={{ color: '#f0f0f0' }}>
-                    {row.count.toLocaleString()}
+                    {count.toLocaleString()}
                   </span>
                   <span className="text-xs w-8 text-right" style={{ color: '#505050' }}>
                     {pct}%
