@@ -158,6 +158,7 @@ export interface Document {
   file_size: number | null
   mime_type: string | null
   category: string
+  folder: string | null
   ingest_mode: IngestMode
   status: DocumentStatus
   chunk_count: number

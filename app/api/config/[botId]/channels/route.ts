@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { encrypt, maskToken } from '@/lib/crypto/tokens'
 import { nanoid } from 'nanoid'
+import { setupWebhook } from '@/lib/channels/telegram'
 
 // ─── GET: return masked channel configs ───────────────────────────────────────
 
@@ -147,6 +148,12 @@ export async function POST(
         return Response.json({ error: 'Invalid Telegram bot token' }, { status: 400 })
       }
 
+      // Generate webhook secret + auto-register before encrypting token
+      const webhookSecret = nanoid(32)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+      const webhookUrl = `${appUrl}/api/webhook/telegram?botId=${botId}`
+      const webhookOk = await setupWebhook(data.bot_token, webhookUrl, webhookSecret)
+
       const encryptedToken = await encrypt(data.bot_token)
 
       const { error } = await serviceClient
@@ -158,6 +165,7 @@ export async function POST(
           config: {
             bot_token: encryptedToken,
             bot_username: tgData.result.username,
+            webhook_secret: webhookSecret,
           },
         }, { onConflict: 'bot_id,channel' })
 
@@ -166,6 +174,8 @@ export async function POST(
       return Response.json({
         success: true,
         bot_username: tgData.result.username,
+        webhook_registered: webhookOk,
+        webhook_url: webhookUrl,
       })
     }
 

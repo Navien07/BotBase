@@ -20,6 +20,10 @@ import {
   Edit2,
   Eye,
   Download,
+  Folder,
+  FolderPlus,
+  FolderOpen,
+  MoveRight,
 } from 'lucide-react'
 import type { Document, Product } from '@/types/database'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -28,7 +32,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 
 type DocRow = Pick<
   Document,
-  'id' | 'filename' | 'mime_type' | 'category' | 'status' | 'chunk_count' | 'error_message' | 'created_at' | 'file_path'
+  'id' | 'filename' | 'mime_type' | 'category' | 'folder' | 'status' | 'chunk_count' | 'error_message' | 'created_at' | 'file_path'
 >
 
 type ProductRow = Pick<
@@ -145,6 +149,14 @@ export default function KnowledgePage() {
   const [urlInput, setUrlInput] = useState('')
   const [scraping, setScraping] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
+
+  // Folder state
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null) // null = All
+  const [uploadFolder, setUploadFolder] = useState('') // folder for current upload session
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [movingDocId, setMovingDocId] = useState<string | null>(null)
 
   // Products
   const [products, setProducts] = useState<ProductRow[]>([])
@@ -161,7 +173,7 @@ export default function KnowledgePage() {
   const fetchDocs = useCallback(async () => {
     const { data, error } = await supabase
       .from('documents')
-      .select('id, filename, mime_type, category, status, chunk_count, error_message, created_at, file_path')
+      .select('id, filename, mime_type, category, folder, status, chunk_count, error_message, created_at, file_path')
       .eq('bot_id', botId)
       .order('created_at', { ascending: false })
 
@@ -211,7 +223,7 @@ export default function KnowledgePage() {
 
   // ─── File upload ─────────────────────────────────────────────────────────
 
-  async function handleFiles(files: FileList | File[]) {
+  async function handleFiles(files: FileList | File[], folderOverride?: string) {
     const list = Array.from(files)
     for (const file of list) {
       if (!ALLOWED_MIME.has(file.type)) {
@@ -222,11 +234,47 @@ export default function KnowledgePage() {
         toast.error(`${file.name}: exceeds 10 MB limit`)
         continue
       }
-      await uploadFile(file)
+      await uploadFile(file, (folderOverride ?? uploadFolder) || undefined)
     }
   }
 
-  async function uploadFile(file: File) {
+  async function handleFolderFiles(files: FileList) {
+    if (files.length === 0) return
+    // Extract folder name from first file's webkitRelativePath (e.g. "FolderName/file.pdf")
+    const firstPath = (files[0] as File & { webkitRelativePath?: string }).webkitRelativePath ?? ''
+    const folderName = firstPath.split('/')[0] || 'Uploaded Folder'
+    await handleFiles(files, folderName)
+    // Switch view to the newly uploaded folder
+    setSelectedFolder(folderName)
+    setUploadFolder(folderName)
+  }
+
+  async function handleMoveToFolder(docId: string, folder: string | null) {
+    const { error } = await supabase
+      .from('documents')
+      .update({ folder: folder || null })
+      .eq('id', docId)
+      .eq('bot_id', botId)
+
+    if (error) {
+      toast.error('Failed to move document')
+    } else {
+      setDocs((prev) => prev.map((d) => d.id === docId ? { ...d, folder: folder || null } : d))
+      setMovingDocId(null)
+    }
+  }
+
+  function handleCreateFolder() {
+    const name = newFolderName.trim()
+    if (!name) return
+    setSelectedFolder(name)
+    setUploadFolder(name)
+    setShowNewFolder(false)
+    setNewFolderName('')
+    toast.success(`Folder "${name}" created — upload files to add documents`)
+  }
+
+  async function uploadFile(file: File, folder?: string) {
     setUploading(file.name)
     try {
       // 1. Create document record + get signed upload URL
@@ -237,6 +285,7 @@ export default function KnowledgePage() {
           filename: file.name,
           mimeType: file.type,
           fileSize: file.size,
+          folder: folder || undefined,
         }),
       })
 
@@ -445,7 +494,7 @@ export default function KnowledgePage() {
     e.preventDefault()
     setDragOver(false)
     if (e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files)
+      handleFiles(e.dataTransfer.files, uploadFolder || undefined)
     }
   }
 
@@ -474,8 +523,78 @@ export default function KnowledgePage() {
       </div>
 
       {/* ── Documents tab ── */}
-      {activeTab === 'documents' && (
+      {activeTab === 'documents' && (() => {
+        const folders = Array.from(new Set(docs.map((d) => d.folder).filter((f): f is string => !!f))).sort()
+        const filteredDocs = selectedFolder === null ? docs : docs.filter((d) => d.folder === selectedFolder)
+        return (
         <div className="space-y-4">
+          {/* Folder bar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => { setSelectedFolder(null); setUploadFolder('') }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{
+                background: selectedFolder === null ? 'var(--bb-primary)' : 'var(--bb-surface)',
+                color: selectedFolder === null ? '#fff' : 'var(--bb-text-2)',
+                border: '1px solid',
+                borderColor: selectedFolder === null ? 'var(--bb-primary)' : 'var(--bb-border)',
+              }}
+            >
+              <Folder className="w-3.5 h-3.5" /> All
+            </button>
+            {folders.map((f) => (
+              <button
+                key={f}
+                onClick={() => { setSelectedFolder(f); setUploadFolder(f) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  background: selectedFolder === f ? 'rgba(99,102,241,0.15)' : 'var(--bb-surface)',
+                  color: selectedFolder === f ? 'var(--bb-primary)' : 'var(--bb-text-2)',
+                  border: '1px solid',
+                  borderColor: selectedFolder === f ? 'var(--bb-primary)' : 'var(--bb-border)',
+                }}
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                {f}
+                <span className="ml-1 opacity-60">
+                  {docs.filter((d) => d.folder === f).length}
+                </span>
+              </button>
+            ))}
+            {/* New folder */}
+            {showNewFolder ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Folder name"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateFolder()
+                    if (e.key === 'Escape') { setShowNewFolder(false); setNewFolderName('') }
+                  }}
+                  className="px-2 py-1 rounded-lg text-xs outline-none border"
+                  style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-primary)', color: 'var(--bb-text-1)', width: 140 }}
+                />
+                <button onClick={handleCreateFolder} className="px-2 py-1 rounded-lg text-xs" style={{ background: 'var(--bb-primary)', color: '#fff' }}>
+                  Create
+                </button>
+                <button onClick={() => { setShowNewFolder(false); setNewFolderName('') }} className="p-1 rounded-lg" style={{ color: 'var(--bb-text-3)' }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowNewFolder(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{ background: 'var(--bb-surface)', color: 'var(--bb-text-3)', border: '1px dashed var(--bb-border)' }}
+              >
+                <FolderPlus className="w-3.5 h-3.5" /> New Folder
+              </button>
+            )}
+          </div>
+
           {/* Upload zone */}
           <div
             onDragOver={onDragOver}
@@ -494,13 +613,24 @@ export default function KnowledgePage() {
               accept={ALLOWED_ACCEPT}
               multiple
               className="hidden"
-              onChange={(e) => e.target.files && handleFiles(e.target.files)}
+              onChange={(e) => e.target.files && handleFiles(e.target.files, uploadFolder || undefined)}
+            />
+            {/* Hidden folder input */}
+            <input
+              ref={folderInputRef}
+              type="file"
+              // @ts-expect-error webkitdirectory is non-standard
+              webkitdirectory=""
+              multiple
+              className="hidden"
+              onChange={(e) => e.target.files && handleFolderFiles(e.target.files)}
             />
             {uploading ? (
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--bb-primary)' }} />
                 <p className="text-sm" style={{ color: 'var(--bb-text-2)' }}>
                   Uploading <span style={{ color: 'var(--bb-text-1)' }}>{uploading}</span>…
+                  {uploadFolder && <span style={{ color: 'var(--bb-text-3)' }}> → {uploadFolder}</span>}
                 </p>
               </div>
             ) : (
@@ -508,10 +638,18 @@ export default function KnowledgePage() {
                 <Upload className="w-8 h-8" style={{ color: 'var(--bb-text-3)' }} />
                 <p className="text-sm" style={{ color: 'var(--bb-text-1)' }}>
                   Drag &amp; drop files here, or{' '}
-                  <span style={{ color: 'var(--bb-primary)' }}>browse</span>
+                  <span style={{ color: 'var(--bb-primary)' }}>browse files</span>
+                  {' '}or{' '}
+                  <span
+                    style={{ color: 'var(--bb-accent)', cursor: 'pointer' }}
+                    onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click() }}
+                  >
+                    upload a folder
+                  </span>
                 </p>
                 <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
                   PDF, DOCX, TXT, CSV · max 10 MB
+                  {uploadFolder && <> · uploading to <strong style={{ color: 'var(--bb-text-2)' }}>{uploadFolder}</strong></>}
                 </p>
               </div>
             )}
@@ -556,13 +694,18 @@ export default function KnowledgePage() {
               style={{ borderColor: 'var(--bb-border)' }}
             >
               <span className="text-sm font-medium" style={{ color: 'var(--bb-text-1)' }}>
-                Documents
-                {docs.length > 0 && (
+                {selectedFolder ? (
+                  <span className="flex items-center gap-1.5">
+                    <FolderOpen className="w-4 h-4" style={{ color: 'var(--bb-primary)' }} />
+                    {selectedFolder}
+                  </span>
+                ) : 'Documents'}
+                {filteredDocs.length > 0 && (
                   <span
                     className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
                     style={{ background: 'var(--bb-surface-3)', color: 'var(--bb-text-2)' }}
                   >
-                    {docs.length}
+                    {filteredDocs.length}
                   </span>
                 )}
               </span>
@@ -572,11 +715,11 @@ export default function KnowledgePage() {
               <div className="p-8 text-center">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto" style={{ color: 'var(--bb-text-3)' }} />
               </div>
-            ) : docs.length === 0 ? (
+            ) : filteredDocs.length === 0 ? (
               <EmptyState
-                icon={Upload}
-                title="No documents uploaded"
-                description="Upload a file or scrape a URL to build your knowledge base"
+                icon={selectedFolder ? FolderOpen : Upload}
+                title={selectedFolder ? `No documents in "${selectedFolder}"` : 'No documents uploaded'}
+                description={selectedFolder ? 'Upload files while this folder is selected' : 'Upload a file or scrape a URL to build your knowledge base'}
                 actionLabel="Upload Document"
                 onAction={() => fileInputRef.current?.click()}
               />
@@ -585,7 +728,7 @@ export default function KnowledgePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--bb-border)' }}>
-                    {['Name', 'Type', 'Status', 'Chunks', 'Date', ''].map((h) => (
+                    {['Name', 'Folder', 'Type', 'Status', 'Chunks', 'Date', ''].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-2.5 text-left text-xs font-medium"
@@ -597,7 +740,7 @@ export default function KnowledgePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {docs.map((doc) => (
+                  {filteredDocs.map((doc) => (
                     <tr
                       key={doc.id}
                       className="border-b last:border-0 hover:bg-opacity-50 transition-colors"
@@ -621,6 +764,18 @@ export default function KnowledgePage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
+                        {doc.folder ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                            style={{ background: 'rgba(99,102,241,0.1)', color: 'var(--bb-primary)' }}
+                          >
+                            <Folder className="w-3 h-3" />{doc.folder}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--bb-text-3)', fontSize: '0.75rem' }}>—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <TypeBadge mimeType={doc.mime_type} category={doc.category} />
                       </td>
                       <td className="px-4 py-3">
@@ -637,7 +792,7 @@ export default function KnowledgePage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 relative">
                           {doc.category !== 'url' && doc.file_path && (
                             <button
                               onClick={() => handlePreview(doc.id, doc.mime_type, doc.category)}
@@ -650,6 +805,39 @@ export default function KnowledgePage() {
                                 <Download className="w-3.5 h-3.5" style={{ color: 'var(--bb-text-3)' }} />
                               )}
                             </button>
+                          )}
+                          {/* Move to folder */}
+                          <button
+                            onClick={() => setMovingDocId(movingDocId === doc.id ? null : doc.id)}
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                            title="Move to folder"
+                          >
+                            <MoveRight className="w-3.5 h-3.5" style={{ color: 'var(--bb-text-3)' }} />
+                          </button>
+                          {movingDocId === doc.id && (
+                            <div
+                              className="absolute right-0 top-8 z-20 rounded-lg border p-2 min-w-36 shadow-lg"
+                              style={{ background: 'var(--bb-surface-2)', borderColor: 'var(--bb-border)' }}
+                            >
+                              <p className="text-xs mb-1.5 px-1" style={{ color: 'var(--bb-text-3)' }}>Move to folder</p>
+                              <button
+                                onClick={() => handleMoveToFolder(doc.id, null)}
+                                className="w-full text-left px-2 py-1 rounded text-xs hover:bg-white/5"
+                                style={{ color: 'var(--bb-text-2)' }}
+                              >
+                                — No folder
+                              </button>
+                              {folders.map((f) => (
+                                <button
+                                  key={f}
+                                  onClick={() => handleMoveToFolder(doc.id, f)}
+                                  className="w-full text-left px-2 py-1 rounded text-xs hover:bg-white/5 flex items-center gap-1.5"
+                                  style={{ color: f === doc.folder ? 'var(--bb-primary)' : 'var(--bb-text-2)' }}
+                                >
+                                  <Folder className="w-3 h-3" />{f}
+                                </button>
+                              ))}
+                            </div>
                           )}
                           <button
                             onClick={() => handleDeleteDoc(doc.id, doc.filename)}
@@ -668,7 +856,8 @@ export default function KnowledgePage() {
             )}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ── Products tab ── */}
       {activeTab === 'products' && (

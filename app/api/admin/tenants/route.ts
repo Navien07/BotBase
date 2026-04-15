@@ -24,7 +24,8 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -35,7 +36,6 @@ export async function GET() {
   }
 
   try {
-    const serviceClient = createServiceClient()
 
     const { data: tenants, error } = await serviceClient
       .from('tenants')
@@ -77,7 +77,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -113,8 +114,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    const serviceClient = createServiceClient()
-
     // Generate unique slug
     const baseSlug = slugify(name)
     let slug = baseSlug

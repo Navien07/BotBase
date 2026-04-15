@@ -15,6 +15,7 @@ const IngestSchema = z.object({
   filename: z.string().min(1).max(255),
   mimeType: z.enum(ALLOWED_MIME_TYPES),
   fileSize: z.number().int().positive().max(10 * 1024 * 1024),
+  folder: z.string().max(100).optional(),
 })
 
 export async function POST(
@@ -53,7 +54,7 @@ export async function POST(
     )
   }
 
-  const { filename, mimeType, fileSize } = parsed.data
+  const { filename, mimeType, fileSize, folder } = parsed.data
 
   try {
     const service = createServiceClient()
@@ -71,6 +72,7 @@ export async function POST(
       file_size: fileSize,
       mime_type: mimeType,
       category: 'upload',
+      folder: folder ?? null,
       ingest_mode: 'chunks',
       status: 'pending',
       chunk_count: 0,

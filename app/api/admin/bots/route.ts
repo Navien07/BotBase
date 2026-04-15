@@ -7,7 +7,8 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -18,7 +19,6 @@ export async function GET() {
   }
 
   try {
-    const serviceClient = createServiceClient()
 
     // Get all bots with tenant names
     const { data: bots, error: botsError } = await serviceClient

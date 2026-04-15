@@ -14,7 +14,8 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -25,7 +26,6 @@ export async function GET() {
   }
 
   try {
-    const serviceClient = createServiceClient()
 
     // Get all profiles joined with tenant names
     const { data: profiles, error: profilesError } = await serviceClient
@@ -79,7 +79,8 @@ export async function PATCH(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -108,7 +109,6 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const serviceClient = createServiceClient()
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if (role !== undefined) updates.role = role

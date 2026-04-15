@@ -64,7 +64,7 @@ export async function POST(
   // 1. Fetch document record — verify it belongs to this botId
   const { data: doc, error: fetchError } = await service
     .from('documents')
-    .select('id, bot_id, filename, file_path, mime_type, category, status')
+    .select('id, bot_id, filename, file_path, mime_type, category, folder, status')
     .eq('id', documentId)
     .eq('bot_id', botId)
     .single()
@@ -150,7 +150,7 @@ export async function POST(
           embedding: embeddings[idx],
           token_count: chunk.tokenCount,
           chunk_index: chunk.index,
-          metadata: {},
+          metadata: doc.folder ? { folder: doc.folder } : {},
         }))
 
         // Insert chunks in batches of 50

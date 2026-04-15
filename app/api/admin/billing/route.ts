@@ -16,7 +16,8 @@ export async function GET(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const serviceClient = createServiceClient()
+  const { data: profile } = await serviceClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -27,7 +28,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    const serviceClient = createServiceClient()
     const { searchParams } = new URL(req.url)
     const format = searchParams.get('format')
 
