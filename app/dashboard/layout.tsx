@@ -16,34 +16,37 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // ALWAYS use serviceClient for profile queries — session client cannot resolve
+  // auth.uid() correctly server-side, causing silent RLS failures (CLAUDE.md rule #14)
+  const serviceClient = createServiceClient()
+
   // Fetch profile
-  let { data: profile } = await supabase
+  let { data: profile } = await serviceClient
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
 
   // Profile missing — can happen when auth trigger missed a manually-created user.
-  // Auto-create a minimal profile so the dashboard is accessible.
+  // Auto-create a minimal profile (without tenant_id) so the dashboard is accessible.
+  // IMPORTANT: do NOT set tenant_id here — super_admin assigns it manually.
   if (!profile) {
     const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? '')
       .split(',').map((e: string) => e.trim())
     const role: UserRole = superAdminEmails.includes(user.email ?? '')
       ? 'super_admin'
       : 'tenant_admin'
-    const serviceClient = createServiceClient()
     const { data: created, error: upsertError } = await serviceClient
       .from('profiles')
-      .upsert({
+      .insert({
         id: user.id,
         role,
         display_name: (user.user_metadata?.full_name as string | undefined) ?? user.email?.split('@')[0] ?? 'User',
         language_preference: 'en',
-        tenant_id: null,
       })
       .select()
       .single()
-    if (upsertError) console.error('[dashboard/layout] profile upsert failed:', upsertError.message)
+    if (upsertError) console.error('[dashboard/layout] profile insert failed:', upsertError.message)
     profile = created
   }
 
@@ -51,7 +54,7 @@ export default async function DashboardLayout({
   // (proxy sees authenticated user → redirects back to /dashboard/overview → layout → redirect → loop)
 
   // Fetch bots for this tenant (or all bots for super_admin)
-  let botsQuery = supabase
+  let botsQuery = serviceClient
     .from('bots')
     .select('id, name, slug, is_active, avatar_url, feature_flags')
     .order('created_at', { ascending: true })

@@ -9,9 +9,11 @@ import type { Bot as BotType } from '@/types/database'
 interface BotSwitcherProps {
   bots: BotType[]
   isCollapsed: boolean
+  role?: string
 }
 
-export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
+export function BotSwitcher({ bots, isCollapsed, role }: BotSwitcherProps) {
+  const isSuperAdmin = role === 'super_admin'
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [currentBotId, setCurrentBotId] = useState<string | null>(
@@ -34,6 +36,7 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
 
   if (isCollapsed) {
     if (bots.length === 0) {
+      if (!isSuperAdmin) return null
       return (
         <Link
           href="/dashboard/clients/new"
@@ -58,6 +61,7 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
   }
 
   if (bots.length === 0) {
+    if (!isSuperAdmin) return null
     return (
       <div className="px-3">
         <Link
@@ -139,18 +143,20 @@ export function BotSwitcher({ bots, isCollapsed }: BotSwitcherProps) {
                 </button>
               ))
             )}
-            <div style={{ borderTop: '1px solid var(--bb-border)', marginTop: '4px', paddingTop: '4px' }}>
-              <button
-                className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors"
-                style={{ color: 'var(--bb-primary)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-3)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                onClick={() => { setOpen(false); router.push('/dashboard/clients/new') }}
-              >
-                <Plus size={12} />
-                Create new bot
-              </button>
-            </div>
+            {isSuperAdmin && (
+              <div style={{ borderTop: '1px solid var(--bb-border)', marginTop: '4px', paddingTop: '4px' }}>
+                <button
+                  className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors"
+                  style={{ color: 'var(--bb-primary)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-3)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                  onClick={() => { setOpen(false); router.push('/dashboard/clients/new') }}
+                >
+                  <Plus size={12} />
+                  Create new bot
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

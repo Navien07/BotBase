@@ -51,6 +51,11 @@ export default async function BotsPage() {
       .eq('tenant_id', profile.tenant_id)
       .order('created_at', { ascending: true })
     bots = (data ?? []).map((b) => ({ ...b, tenantName: undefined }))
+
+    // Auto-redirect tenant_admin to their bot — they can't create bots themselves
+    if (bots.length > 0) {
+      redirect(`/dashboard/bots/${bots[0].id}/conversations`)
+    }
   }
 
   return (

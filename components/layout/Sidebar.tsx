@@ -157,11 +157,11 @@ export function Sidebar({ bots, role }: SidebarProps) {
       <>
         {/* Bot Switcher */}
         <div className="py-3" style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}>
-          <BotSwitcher bots={bots} isCollapsed={collapsed} />
+          <BotSwitcher bots={bots} isCollapsed={collapsed} role={role} />
           {!currentBotId && !collapsed && (
             <div className="mx-3 mt-2 rounded-lg border border-dashed border-white/20 bg-white/5 px-3 py-2">
               <p className="text-xs leading-snug" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                👆 Create or select a bot to unlock these features
+                {role === 'super_admin' ? '👆 Create or select a bot to unlock these features' : '👆 Select a bot to unlock these features'}
               </p>
             </div>
           )}
