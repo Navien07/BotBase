@@ -1,7 +1,7 @@
 // ELKEN TENANT PLUGIN — do not import outside lib/tenants/elken/
 
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendMessage } from '@/lib/channels/dispatcher'
+import { sendMessage, sendDocument } from '@/lib/channels/dispatcher'
 import { ELKEN_BOT_ID, ELKEN_LOCATIONS, ELKEN_FACILITIES } from '@/lib/tenants/elken/config'
 import type { ElkenFacilityId, ElkenLocation } from '@/lib/tenants/elken/config'
 import { toElkenLang } from '@/lib/tenants/elken/config'
@@ -16,6 +16,9 @@ import type { Booking, Contact } from '@/types/database'
  *
  * PROMPT 3: dispatchBrochure is also implemented here.
  */
+// Admin notifications route through n8n because targetNumber is the
+// PIC's WhatsApp number — not a contact in the DB. Native dispatcher
+// only sends to registered contacts.
 export async function dispatchAdminNotification(
   botId: string,
   bookingId: string,
@@ -134,14 +137,6 @@ export async function dispatchBrochure(
 
   const supabase = createServiceClient()
 
-  const { data: bot } = await supabase
-    .from('bots')
-    .select('n8n_outbound_webhook, name')
-    .eq('id', botId)
-    .single()
-
-  if (!bot?.n8n_outbound_webhook) return false
-
   const langPriority = [detectedLang, 'trilingual', 'en']
     .filter((v, i, a) => a.indexOf(v) === i)
 
@@ -166,24 +161,23 @@ export async function dispatchBrochure(
 
   if (!doc) return false
 
-  try {
-    const res = await fetch(bot.n8n_outbound_webhook as string, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        type: 'brochure',
-        userId,
-        channel,
-        brochureUrl: doc.brochure_url,
-        caption: `Here is the brochure for ${doc.title} 📄`,
-        botName: bot.name,
-      }),
-    })
-    return res.ok
-  } catch (err) {
-    console.error('[ElkenNotif] dispatchBrochure fetch failed:', err)
-    return false
-  }
+  const { data: contact } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('bot_id', botId)
+    .eq('external_id', userId)
+    .eq('channel', channel)
+    .single()
+
+  if (!contact?.id) return false
+
+  return sendDocument(
+    contact.id,
+    doc.brochure_url,
+    doc.title + '.pdf',
+    `Here is the brochure for ${doc.title} 📄`,
+    botId
+  )
 }
 
 // ─── Scheduled Notifications ─────────────────────────────────────────────────

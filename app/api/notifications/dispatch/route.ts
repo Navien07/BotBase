@@ -3,6 +3,7 @@
 // Also callable manually for testing
 
 import { createServiceClient } from '@/lib/supabase/service'
+import { sendMessage } from '@/lib/channels/dispatcher'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -37,42 +38,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ dispatched: 0, message: 'No notifications due' })
   }
 
-  // Fetch bot webhook URLs for all affected bots
-  const botIds = [...new Set(notifications.map(n => n.bot_id as string))]
-  const { data: bots } = await supabase
-    .from('bots')
-    .select('id, n8n_outbound_webhook, name')
-    .in('id', botIds)
-
-  const webhookMap = Object.fromEntries(
-    (bots ?? []).map(b => [b.id as string, b.n8n_outbound_webhook as string | null])
-  )
-
   let dispatched = 0
   let failed = 0
 
   for (const notification of notifications) {
-    const webhook = webhookMap[notification.bot_id as string]
-    if (!webhook) {
-      console.warn(`[NotificationDispatch] No webhook for bot ${notification.bot_id}`)
-      continue
-    }
-
     try {
-      const res = await fetch(webhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: notification.type === 'post_session_survey' ? 'survey' : 'reminder',
-          userId: notification.user_id,
-          channel: notification.channel,
-          message: notification.message,
-          bookingId: notification.booking_id,
-          notificationId: notification.id,
-        }),
-      })
+      // Resolve contact_id: stored directly if populated, else look up by user_id + channel
+      let contactId = notification.contact_id as string | null
 
-      if (res.ok) {
+      if (!contactId) {
+        const { data: contact } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('bot_id', notification.bot_id)
+          .eq('external_id', notification.user_id)
+          .eq('channel', notification.channel)
+          .single()
+
+        contactId = contact?.id ?? null
+      }
+
+      if (!contactId) {
+        console.warn(`[NotificationDispatch] No contact found for user ${notification.user_id} on ${notification.channel}`)
+        await supabase
+          .from('pending_notifications')
+          .update({ retry_count: (notification.retry_count as number) + 1 })
+          .eq('id', notification.id)
+        failed++
+        continue
+      }
+
+      const sent = await sendMessage(
+        contactId,
+        notification.message as string,
+        notification.bot_id as string
+      )
+
+      if (sent) {
         await supabase
           .from('pending_notifications')
           .update({ sent_at: new Date().toISOString() })

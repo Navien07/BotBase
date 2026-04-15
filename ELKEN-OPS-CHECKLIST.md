@@ -21,27 +21,35 @@ WHERE table_name = 'documents' AND column_name = 'brochure_url';
 -- → 1 row
 ```
 
-### Step 2 — n8n Schedule for Notification Dispatch
+### Step 2 — n8n Setup for Admin Notification Dispatch Only
 
-In n8n, create a new workflow:
+n8n is **only needed for admin PIC notifications** (`dispatchAdminNotification`).
+All customer-facing notifications (reminders, surveys, brochures) are sent
+natively by BotBase's channel dispatcher — no n8n required.
 
-**Trigger:** Schedule Trigger → every day at 02:00 UTC (= 10:00 AM MYT)
+For the n8n outbound workflow, only one branch is needed:
 
-**Node:** HTTP Request
-- Method: POST
-- URL: `https://your-botbase-domain.vercel.app/api/notifications/dispatch`
-- Header: `x-cron-secret` = `{{ $env.CRON_SECRET }}`
+**Trigger:** Webhook (receives POST from BotBase)
+**Switch on** `type` field:
+  `admin_notification` → WhatsApp TEXT to `{{ $json.targetNumber }}`
 
-**On success:** Log dispatched count
-**On failure:** Send alert to yourself
+The following branches are **NO LONGER NEEDED** in n8n:
+- ~~confirmation/reminder/survey~~ → handled natively by BotBase
+- ~~brochure~~ → handled natively by BotBase
 
-Set `CRON_SECRET` in:
-- [ ] Vercel Dashboard → Project → Environment Variables → `CRON_SECRET=<random-string>`
-- [ ] n8n → Credentials → Environment → `CRON_SECRET=<same-string>`
-- [ ] `.env.local` → `CRON_SECRET=<same-string>`
+Set n8n webhook URL for admin notifications only:
+```sql
+UPDATE bots
+SET n8n_outbound_webhook = 'YOUR_N8N_WEBHOOK_URL'
+WHERE id = '21794953-b13f-4e5f-984a-1536c453461d';
+```
 
-- [ ] n8n workflow created and enabled
-- [ ] Test manually: `curl -X POST https://<domain>/api/notifications/dispatch -H "x-cron-secret: <secret>"`
+- [ ] n8n webhook workflow created (admin_notification branch only)
+- [ ] `n8n_outbound_webhook` URL set in DB (SQL above)
+
+> **Note:** If n8n is not yet configured, PIC notifications will silently
+> fail (`dispatchAdminNotification` returns false) but all customer
+> notifications (reminders, surveys, brochures) will still work natively.
 
 ### Step 3 — Re-run seed
 ```bash
