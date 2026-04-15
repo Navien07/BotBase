@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback, use } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { formatDistanceToNow, format } from 'date-fns'
+import { formatDistanceToNow, format, isToday } from 'date-fns'
 import {
   MessageSquare, Search, User, Send, UserCheck, UserX,
-  Wifi, Phone, Filter, Bug, X,
+  Wifi, Phone, Filter, Bug, X, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { MessageBubble, type MessageData } from '@/components/conversation/MessageBubble'
@@ -57,6 +57,14 @@ function relativeTime(ts: string | null): string {
   catch { return '' }
 }
 
+function absTime(ts: string | null): string {
+  if (!ts) return ''
+  try {
+    const d = new Date(ts)
+    return isToday(d) ? format(d, 'HH:mm') : format(d, 'dd MMM')
+  } catch { return '' }
+}
+
 function contactName(contact: ConversationContact | null, channel: string): string {
   if (contact?.name) return contact.name
   if (contact?.phone) return contact.phone
@@ -97,9 +105,14 @@ function ConversationRow({
             <span className="text-sm font-medium truncate" style={{ color: 'var(--bb-text-1)' }}>
               {name}
             </span>
-            <span className="text-xs flex-shrink-0" style={{ color: 'var(--bb-text-3)' }}>
-              {relativeTime(conv.last_message_at)}
-            </span>
+            <div className="flex flex-col items-end gap-0 flex-shrink-0">
+              <span className="text-xs font-medium" style={{ color: 'var(--bb-text-2)' }}>
+                {absTime(conv.last_message_at)}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
+                {relativeTime(conv.last_message_at)}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-1 mt-0.5">
             <span className="text-xs">{icon}</span>
@@ -236,6 +249,10 @@ export default function ConversationsPage({
   const [sending, setSending] = useState(false)
   const [takingOver, setTakingOver] = useState(false)
 
+  // ── AI summary ──────────────────────────────────────────────────────────────
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // ── Init: get user + profile ───────────────────────────────────────────────
@@ -304,7 +321,42 @@ export default function ConversationsPage({
   useEffect(() => {
     if (!selectedId) return
     fetchThread(selectedId)
+    setSummary(null)
   }, [selectedId, fetchThread])
+
+  // ── 1s silent poll: append new messages without loading flicker ────────────
+  useEffect(() => {
+    if (!selectedId) return
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/conversations/${botId}/${selectedId}`)
+        if (!res.ok) return
+        const json = await res.json() as { messages: MessageData[]; agent_session: AgentSession | null }
+        setMessages(prev => {
+          if (json.messages.length <= prev.length) return prev
+          return json.messages
+        })
+        setAgentSession(json.agent_session)
+      } catch { /* ignore */ }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [selectedId, botId])
+
+  // ── fetchSummary ───────────────────────────────────────────────────────────
+  const fetchSummary = useCallback(async () => {
+    if (!selectedId) return
+    setSummaryLoading(true)
+    try {
+      const res = await fetch(`/api/conversations/${botId}/${selectedId}/summary`)
+      if (!res.ok) throw new Error('Failed')
+      const json = await res.json() as { summary: string }
+      setSummary(json.summary)
+    } catch {
+      toast.error('Could not generate summary')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [botId, selectedId])
 
   // ── Scroll to bottom on new messages ──────────────────────────────────────
   useEffect(() => {
@@ -635,6 +687,22 @@ export default function ConversationsPage({
               </div>
             </div>
 
+            {/* AI Summarize button */}
+            <button
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors flex-shrink-0"
+              style={{
+                background: summary ? 'rgba(34,211,238,0.08)' : 'var(--bb-surface-2)',
+                color: summary ? 'var(--bb-accent)' : 'var(--bb-text-3)',
+                border: `1px solid ${summary ? 'rgba(34,211,238,0.2)' : 'var(--bb-border)'}`,
+              }}
+              title="Generate AI summary of this conversation"
+              onClick={fetchSummary}
+              disabled={summaryLoading}
+            >
+              <Sparkles size={12} />
+              {summaryLoading ? 'Summarizing…' : 'Summarize'}
+            </button>
+
             {/* Debug mode toggle (super admin only) */}
             {isSuperAdmin && (
               <button
@@ -673,6 +741,21 @@ export default function ConversationsPage({
               </button>
             )}
           </div>
+
+          {/* AI Summary strip */}
+          {summary && (
+            <div
+              className="flex items-start gap-2 px-5 py-2 text-xs flex-shrink-0"
+              style={{
+                background: 'rgba(34,211,238,0.05)',
+                borderBottom: '1px solid rgba(34,211,238,0.12)',
+                color: 'var(--bb-text-2)',
+              }}
+            >
+              <Sparkles size={11} style={{ color: 'var(--bb-accent)', marginTop: 1, flexShrink: 0 }} />
+              <span>{summary}</span>
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-5 py-4">

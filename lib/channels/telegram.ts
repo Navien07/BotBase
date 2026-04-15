@@ -98,7 +98,7 @@ export async function handleUpdate(
   // Find or create conversation for this Telegram user
   const { data: existing } = await supabase
     .from('conversations')
-    .select('id, agent_id')
+    .select('id, agent_id, contact_id')
     .eq('bot_id', botId)
     .eq('external_user_id', userId)
     .eq('channel', 'telegram')
@@ -111,6 +111,14 @@ export async function handleUpdate(
     // Human agent has taken over — don't let bot reply
     if (existing.agent_id) return
     conversationId = existing.id
+    // Backfill contact_id if conversation was created before the fix
+    if (!existing.contact_id && contact?.id) {
+      supabase
+        .from('conversations')
+        .update({ contact_id: contact.id })
+        .eq('id', conversationId)
+        .then(() => null, () => null)
+    }
   } else {
     const { data: newConv, error: convError } = await supabase
       .from('conversations')
