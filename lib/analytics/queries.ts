@@ -12,6 +12,13 @@ export type AnalyticsReport =
   | 'satisfaction'
   | 'booking-funnel'
   | 'kpi'
+  | 'conversations-by-channel'
+  | 'channel-breakdown'
+  | 'booking-status-breakdown'
+  | 'followup-completion'
+  | 'leads-by-stage'
+  | 'whatsapp-volume'
+  | 'telegram-volume'
 
 export const REPORT_TYPES: AnalyticsReport[] = [
   'message-volume',
@@ -25,6 +32,13 @@ export const REPORT_TYPES: AnalyticsReport[] = [
   'satisfaction',
   'booking-funnel',
   'kpi',
+  'conversations-by-channel',
+  'channel-breakdown',
+  'booking-status-breakdown',
+  'followup-completion',
+  'leads-by-stage',
+  'whatsapp-volume',
+  'telegram-volume',
 ]
 
 // ─── Individual report queries ────────────────────────────────────────────────
@@ -121,6 +135,43 @@ export async function getKpi(botId: string, from: string, to: string) {
   }
 }
 
+// ─── New report handlers (Plan 11-02) ─────────────────────────────────────────
+
+export async function getConversationsByChannel(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_conversations_by_channel', { p_bot_id: botId, p_from: from, p_to: to })
+}
+
+export async function getChannelBreakdown(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_channel_breakdown', { p_bot_id: botId, p_from: from, p_to: to })
+}
+
+export async function getBookingStatusBreakdown(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_booking_status_breakdown', { p_bot_id: botId, p_from: from, p_to: to })
+}
+
+export async function getFollowupCompletion(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_followup_completion', { p_bot_id: botId, p_from: from, p_to: to })
+}
+
+export async function getLeadsByStage(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_leads_by_stage', { p_bot_id: botId, p_from: from, p_to: to })
+}
+
+export async function getWhatsappVolume(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_message_volume', { p_bot_id: botId, p_channel: 'whatsapp', p_from: from, p_to: to })
+}
+
+export async function getTelegramVolume(botId: string, from: string, to: string) {
+  const supabase = createServiceClient()
+  return supabase.rpc('get_message_volume', { p_bot_id: botId, p_channel: 'telegram', p_from: from, p_to: to })
+}
+
 // ─── Dispatch map ─────────────────────────────────────────────────────────────
 
 type QueryFn = (
@@ -130,15 +181,22 @@ type QueryFn = (
 ) => Promise<{ data: unknown; error: unknown }>
 
 export const analyticsHandlers: Record<AnalyticsReport, QueryFn> = {
-  'message-volume':   getMessageVolume,
-  'intent-breakdown': getIntentBreakdown,
-  'language-dist':    getLanguageDist,
-  'traffic-source':   getTrafficSource,
-  'unanswered':       getUnansweredQueries,
-  'latency':          getLatencyStats,
-  'funnel':           (botId, _from, _to) => getLeadFunnel(botId) as Promise<{ data: unknown; error: unknown }>,
-  'guardrails':       getGuardrailStats,
-  'satisfaction':     getSatisfactionCounts,
-  'booking-funnel':   getBookingFunnel,
-  'kpi':              getKpi,
+  'message-volume':             getMessageVolume,
+  'intent-breakdown':           getIntentBreakdown,
+  'language-dist':              getLanguageDist,
+  'traffic-source':             getTrafficSource,
+  'unanswered':                 getUnansweredQueries,
+  'latency':                    getLatencyStats,
+  'funnel':                     (botId, _from, _to) => getLeadFunnel(botId) as Promise<{ data: unknown; error: unknown }>,
+  'guardrails':                 getGuardrailStats,
+  'satisfaction':               getSatisfactionCounts,
+  'booking-funnel':             getBookingFunnel,
+  'kpi':                        getKpi,
+  'conversations-by-channel':   getConversationsByChannel,
+  'channel-breakdown':          getChannelBreakdown,
+  'booking-status-breakdown':   getBookingStatusBreakdown,
+  'followup-completion':        getFollowupCompletion,
+  'leads-by-stage':             getLeadsByStage,
+  'whatsapp-volume':            getWhatsappVolume,
+  'telegram-volume':            getTelegramVolume,
 }
