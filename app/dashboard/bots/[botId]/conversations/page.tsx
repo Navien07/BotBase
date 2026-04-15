@@ -121,10 +121,10 @@ function ConversationRow({
             </span>
             {conv.agent_id && (
               <span
-                className="text-xs px-1.5 py-0.5 rounded"
-                style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}
+                className="text-xs px-1.5 py-0.5 rounded font-medium"
+                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
               >
-                agent
+                Needs agent
               </span>
             )}
             {conv.unread_count > 0 && (
@@ -244,14 +244,11 @@ export default function ConversationsPage({
     sb.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       setCurrentUserId(user.id)
-      // Check super admin via profile role
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      if ((profile as { role?: string } | null)?.role === 'super_admin') {
-        setIsSuperAdmin(true)
+      // Use /api/auth/me — direct profiles query fails with RLS using anon client
+      const res = await fetch('/api/auth/me')
+      if (res.ok) {
+        const me = await res.json() as { role?: string }
+        if (me.role === 'super_admin') setIsSuperAdmin(true)
       }
     })
   }, [])
