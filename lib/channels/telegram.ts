@@ -4,6 +4,7 @@ import { decrypt } from '@/lib/crypto/tokens'
 import { runPipeline } from '@/lib/pipeline'
 import { upsertContact } from '@/lib/crm/contacts'
 import { refreshLeadStageAndScore } from '@/lib/crm/lead-score'
+import { deliverPdfBrochures } from './pdf-delivery'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -179,6 +180,15 @@ export async function handleUpdate(
 
   if (response) {
     await sendMessage(chatId, response, botToken)
+  }
+
+  // Send relevant PDF brochures if feature enabled and RAG returned document sources
+  if (bot.feature_flags?.pdf_delivery_enabled && result.ragDocumentIds?.length) {
+    deliverPdfBrochures(result.ragDocumentIds, {
+      channel: 'telegram',
+      recipient: String(chatId),
+      botId,
+    }).catch((e: unknown) => console.error('[telegram] pdf delivery error:', e))
   }
 
   // Refresh lead score + stage after message processed (fire-and-forget)

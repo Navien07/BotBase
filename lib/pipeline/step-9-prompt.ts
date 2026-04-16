@@ -74,11 +74,18 @@ export async function step9Prompt(ctx: PipelineContext): Promise<StepResult> {
     )
   }
 
-  // 9b. File delivery guardrail — bot cannot send files
-  parts.push(
-    'You can only send text messages. Never tell the user you are sending, attaching, or delivering any PDF, ' +
-    'file, brochure, or document. If product information is needed, summarise it in your text response.'
-  )
+  // 9b. PDF delivery notice — system auto-sends brochures after RAG responses
+  if (bot.feature_flags?.pdf_delivery_enabled) {
+    parts.push(
+      'After your text response, the system will automatically send relevant product brochure PDFs to the user. ' +
+      'You may briefly mention "I\'ll also share the product brochure for your reference" — but do NOT say you are ' +
+      'attaching or uploading a file yourself. The PDF is sent automatically as a separate message.'
+    )
+  } else {
+    parts.push(
+      'You cannot send files or PDFs. If product information is needed, summarise it in your text response.'
+    )
+  }
 
   // 10. Response length instructions
   const minWords = bot.response_min_words ?? 20

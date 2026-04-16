@@ -41,6 +41,7 @@ export interface PipelineResult {
   intent: string | null
   language: string
   ragFound: boolean
+  ragDocumentIds: string[]
   guardrailTriggered: boolean
   templateUsed: string | null
   bookingActive: boolean

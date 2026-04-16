@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { decrypt } from '@/lib/crypto/tokens'
 import { runPipeline } from '@/lib/pipeline'
 import { upsertContact } from '@/lib/crm/contacts'
+import { deliverPdfBrochures } from './pdf-delivery'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,15 @@ export async function handleInboundMessage(
 
         if (response) {
           await sendTextMessage(senderPhone, response, accessToken, phoneNumberId)
+        }
+
+        // Send relevant PDF brochures if feature enabled and RAG returned document sources
+        if (bot.feature_flags?.pdf_delivery_enabled && result.ragDocumentIds?.length) {
+          deliverPdfBrochures(result.ragDocumentIds, {
+            channel: 'whatsapp',
+            recipient: senderPhone,
+            botId,
+          }).catch((e: unknown) => console.error('[whatsapp] pdf delivery error:', e))
         }
       }
     }
