@@ -65,7 +65,16 @@ export async function step9Prompt(ctx: PipelineContext): Promise<StepResult> {
     parts.push(buildLiveApiContext(ctx.liveApiData))
   }
 
-  // 9. Response length instructions
+  // 9. Booking guardrail — prevent LLM from simulating the booking flow
+  if (bot.feature_flags?.booking_enabled) {
+    parts.push(
+      'IMPORTANT: Never collect booking details yourself or simulate a booking flow. ' +
+      'If the user wants to make a booking or appointment, instruct them to say "I want to book" ' +
+      'to start the automated booking system.'
+    )
+  }
+
+  // 10. Response length instructions
   const minWords = bot.response_min_words ?? 20
   const maxWords = bot.response_max_words ?? 300
   parts.push(`Keep responses between ${minWords} and ${maxWords} words.`)

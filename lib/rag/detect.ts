@@ -45,6 +45,17 @@ export async function detectIntentAndLanguage(message: string): Promise<DetectRe
 
     return { intent, language, confidence: parsed.confidence ?? 0.8 }
   } catch {
-    return { intent: 'general', language: 'en', confidence: 0.5 }
+    // Keyword fallback — prevents booking requests from falling through to the generic LLM
+    // when Haiku is unavailable (rate limit, timeout, etc.)
+    return keywordFallback(message)
   }
+}
+
+const BOOK_KEYWORDS = /\b(book|booking|appoint|appointment|reserv|tempah|jadual|预约|预订|pesan)\b/i
+
+function keywordFallback(message: string): DetectResult {
+  if (BOOK_KEYWORDS.test(message)) {
+    return { intent: 'book_session', language: 'en', confidence: 0.6 }
+  }
+  return { intent: 'general', language: 'en', confidence: 0.5 }
 }
