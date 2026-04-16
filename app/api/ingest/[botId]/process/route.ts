@@ -8,7 +8,7 @@ import { isQnADocument, parseQnA } from '@/lib/ingest/qna-parser'
 import { ELKEN_BOT_ID } from '@/lib/tenants/elken/config'
 import { parseElkenFilename } from '@/lib/tenants/elken/kb/product-resolver'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const ProcessSchema = z.object({
   documentId: z.string().uuid(),

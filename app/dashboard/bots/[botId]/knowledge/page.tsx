@@ -188,16 +188,29 @@ export default function KnowledgePage() {
     fetchDocs().finally(() => setDocsLoading(false))
   }, [fetchDocs])
 
-  // Auto-poll every 3s while any doc is pending/processing
+  // Auto-poll every 3s while any doc is pending/processing.
+  // Every 30s also call the repair endpoint to fix docs whose process route
+  // timed out after chunks were already written to the DB.
   useEffect(() => {
     const hasActive = docs.some(
       (d) => d.status === 'pending' || d.status === 'processing'
     )
     if (!hasActive) return
 
-    const id = setInterval(fetchDocs, 3000)
+    let tick = 0
+    const id = setInterval(() => {
+      tick++
+      fetchDocs()
+      if (tick % 10 === 0) {
+        // every ~30s: attempt to repair stuck docs
+        fetch(`/api/ingest/${botId}/repair`, { method: 'POST' })
+          .then((r) => r.json())
+          .then((d) => { if (d.repaired > 0) fetchDocs() })
+          .catch(() => {})
+      }
+    }, 3000)
     return () => clearInterval(id)
-  }, [docs, fetchDocs])
+  }, [docs, fetchDocs, botId])
 
   // ─── Fetch products ──────────────────────────────────────────────────────
 
