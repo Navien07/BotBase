@@ -23,8 +23,8 @@ export async function POST(
 
   const service = createServiceClient()
 
-  // Find docs stuck in "processing" for more than 90 seconds
-  const cutoff = new Date(Date.now() - 90_000).toISOString()
+  // Find docs stuck in "processing" for more than 30 seconds
+  const cutoff = new Date(Date.now() - 30_000).toISOString()
   const { data: stuckDocs, error: fetchError } = await service
     .from('documents')
     .select('id')

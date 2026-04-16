@@ -184,13 +184,25 @@ export default function KnowledgePage() {
     setDocs((data as DocRow[]) ?? [])
   }, [botId, supabase])
 
+  const runRepair = useCallback(() => {
+    fetch(`/api/ingest/${botId}/repair`, { method: 'POST' })
+      .then((r) => r.json())
+      .then((d) => { if (d.repaired > 0) fetchDocs() })
+      .catch(() => {})
+  }, [botId, fetchDocs])
+
   useEffect(() => {
-    fetchDocs().finally(() => setDocsLoading(false))
-  }, [fetchDocs])
+    fetchDocs()
+      .then(() => {
+        // Immediately attempt repair in case any docs are stuck from a prior timeout
+        runRepair()
+      })
+      .finally(() => setDocsLoading(false))
+  }, [fetchDocs, runRepair])
 
   // Auto-poll every 3s while any doc is pending/processing.
-  // Every 30s also call the repair endpoint to fix docs whose process route
-  // timed out after chunks were already written to the DB.
+  // Every 15s also run repair to fix docs whose process route timed out
+  // after chunks were already written to the DB.
   useEffect(() => {
     const hasActive = docs.some(
       (d) => d.status === 'pending' || d.status === 'processing'
@@ -201,16 +213,13 @@ export default function KnowledgePage() {
     const id = setInterval(() => {
       tick++
       fetchDocs()
-      if (tick % 10 === 0) {
-        // every ~30s: attempt to repair stuck docs
-        fetch(`/api/ingest/${botId}/repair`, { method: 'POST' })
-          .then((r) => r.json())
-          .then((d) => { if (d.repaired > 0) fetchDocs() })
-          .catch(() => {})
+      if (tick % 5 === 0) {
+        // every ~15s: attempt to repair stuck docs
+        runRepair()
       }
     }, 3000)
     return () => clearInterval(id)
-  }, [docs, fetchDocs, botId])
+  }, [docs, fetchDocs, botId, runRepair])
 
   // ─── Fetch products ──────────────────────────────────────────────────────
 
