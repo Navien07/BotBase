@@ -5,7 +5,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'text/csv',
 ])
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
 
 export interface FileValidationResult {
   valid: boolean

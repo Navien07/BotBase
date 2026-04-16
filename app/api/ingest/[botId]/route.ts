@@ -14,7 +14,7 @@ const ALLOWED_MIME_TYPES = [
 const IngestSchema = z.object({
   filename: z.string().min(1).max(255),
   mimeType: z.enum(ALLOWED_MIME_TYPES),
-  fileSize: z.number().int().positive().max(10 * 1024 * 1024),
+  fileSize: z.number().int().positive().max(20 * 1024 * 1024),
   folder: z.string().max(100).optional(),
 })
 

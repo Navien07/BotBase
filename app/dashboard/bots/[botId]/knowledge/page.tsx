@@ -67,7 +67,7 @@ const ALLOWED_MIME = new Set([
   'text/plain',
   'text/csv',
 ])
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_FILE_SIZE = 20 * 1024 * 1024
 
 const EMPTY_FORM: ProductForm = {
   name: '',
@@ -231,7 +231,7 @@ export default function KnowledgePage() {
         continue
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name}: exceeds 10 MB limit`)
+        toast.error(`${file.name}: exceeds 20 MB limit`)
         continue
       }
       await uploadFile(file, (folderOverride ?? uploadFolder) || undefined)
@@ -648,7 +648,7 @@ export default function KnowledgePage() {
                   </span>
                 </p>
                 <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
-                  PDF, DOCX, TXT, CSV · max 10 MB
+                  PDF, DOCX, TXT, CSV · max 20 MB
                   {uploadFolder && <> · uploading to <strong style={{ color: 'var(--bb-text-2)' }}>{uploadFolder}</strong></>}
                 </p>
               </div>

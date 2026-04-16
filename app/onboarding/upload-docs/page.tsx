@@ -226,7 +226,7 @@ function UploadDocsPageInner() {
           <p className="text-[oklch(0.94_0_0)] text-sm font-medium">
             Drop files here or click to browse
           </p>
-          <p className="text-[oklch(0.37_0_0)] text-xs mt-1">PDF, DOCX, TXT — max 10 MB each</p>
+          <p className="text-[oklch(0.37_0_0)] text-xs mt-1">PDF, DOCX, TXT — max 20 MB each</p>
         </div>
       </div>
 
