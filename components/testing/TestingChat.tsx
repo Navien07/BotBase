@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, RotateCcw, Mic, MicOff } from 'lucide-react'
+import { Send, RotateCcw, Mic, MicOff, FileText, ExternalLink } from 'lucide-react'
 
 // ─── SpeechRecognition types (not in TS DOM lib) ──────────────────────────────
 
@@ -47,11 +47,18 @@ interface DebugResult {
   totalDurationMs: number
 }
 
+export interface PdfCard {
+  id: string
+  title: string
+  url: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'bot'
   content: string
   streaming?: boolean
+  pdfs?: PdfCard[]
 }
 
 interface TestingChatProps {
@@ -234,6 +241,22 @@ export function TestingChat({
         prev.map(m => m.id === botMsgId ? { ...m, streaming: false } : m)
       )
       setIsStreaming(false)
+
+      // Fetch and display PDF brochures if enabled and RAG found document sources
+      const pdfEnabled = response.headers.get('X-Pdf-Delivery-Enabled') === 'true'
+      const docIds = response.headers.get('X-Rag-Document-Ids')?.split(',').filter(Boolean) ?? []
+      if (pdfEnabled && docIds.length) {
+        fetch(`/api/testing/${botId}/pdf-links?ids=${docIds.join(',')}`)
+          .then(r => r.json())
+          .then((data: { documents: PdfCard[] }) => {
+            if (data.documents?.length) {
+              setMessages(prev =>
+                prev.map(m => m.id === botMsgId ? { ...m, pdfs: data.documents } : m)
+              )
+            }
+          })
+          .catch(() => null)
+      }
 
       // Populate pipeline panel immediately from header steps (no DB wait)
       onResponseComplete({
@@ -426,6 +449,31 @@ export function TestingChat({
               >
                 {msg.role === 'bot' ? renderMarkdown(msg.content) : msg.content}
               </div>
+              {msg.pdfs && msg.pdfs.length > 0 && (
+                <div className="mt-2 flex flex-col gap-2 max-w-[80%]">
+                  {msg.pdfs.map(pdf => (
+                    <a
+                      key={pdf.id}
+                      href={pdf.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs transition-colors"
+                      style={{
+                        background: 'rgba(99,102,241,0.08)',
+                        border: '1px solid rgba(99,102,241,0.2)',
+                        color: 'var(--bb-text-1)',
+                        textDecoration: 'none',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.15)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.08)' }}
+                    >
+                      <FileText size={14} style={{ color: 'var(--bb-primary)', flexShrink: 0 }} />
+                      <span className="flex-1 truncate font-medium">{pdf.title}</span>
+                      <ExternalLink size={11} style={{ color: 'var(--bb-text-3)', flexShrink: 0 }} />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 

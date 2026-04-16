@@ -144,6 +144,8 @@ export async function POST(
       'X-Rag-Found': result.ragFound ? 'true' : 'false',
       'X-Pipeline-Steps': stepsB64,
       'X-Total-Duration': String(result.totalDurationMs ?? 0),
+      'X-Rag-Document-Ids': (result.ragDocumentIds ?? []).join(','),
+      'X-Pdf-Delivery-Enabled': (bot as Bot & { feature_flags?: Record<string, boolean> }).feature_flags?.pdf_delivery_enabled ? 'true' : 'false',
     })
 
     if (stream) {
