@@ -1,5 +1,6 @@
 {
   "Navigation": {
+    "dashboard": "Dashboard",
     "overview": "Overview",
     "analytics": "Analytics",
     "bots": "My Bots",

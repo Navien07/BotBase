@@ -74,6 +74,12 @@ export async function step9Prompt(ctx: PipelineContext): Promise<StepResult> {
     )
   }
 
+  // 9b. File delivery guardrail — bot cannot send files
+  parts.push(
+    'You can only send text messages. Never tell the user you are sending, attaching, or delivering any PDF, ' +
+    'file, brochure, or document. If product information is needed, summarise it in your text response.'
+  )
+
   // 10. Response length instructions
   const minWords = bot.response_min_words ?? 20
   const maxWords = bot.response_max_words ?? 300

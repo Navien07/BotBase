@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/lib/i18n/provider'
-import { LogOut, User, Settings, ChevronDown } from 'lucide-react'
+import { LogOut, User, Settings, ChevronDown, HelpCircle } from 'lucide-react'
 import type { Lang } from '@/lib/i18n/provider'
+import { HelpGuideDrawer } from './HelpGuideDrawer'
 
 interface TopBarProps {
   userEmail: string
@@ -55,6 +56,7 @@ export function TopBar({ userEmail, displayName }: TopBarProps) {
   const pathname = usePathname()
   const { lang, setLang } = useTranslation()
   const [avatarOpen, setAvatarOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   const pageTitle = getPageTitle(pathname)
   const initials = displayName
@@ -75,6 +77,7 @@ export function TopBar({ userEmail, displayName }: TopBarProps) {
   }
 
   return (
+    <>
     <header
       className="flex items-center justify-between h-14 pl-14 pr-6 md:px-6 flex-shrink-0"
       style={{
@@ -89,6 +92,18 @@ export function TopBar({ userEmail, displayName }: TopBarProps) {
 
       {/* Right side controls */}
       <div className="flex items-center gap-3">
+        {/* Help guide button */}
+        <button
+          onClick={() => setGuideOpen(true)}
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+          style={{ color: 'var(--bb-text-3)', border: '1px solid var(--bb-border)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bb-surface-2)'; e.currentTarget.style.color = 'var(--bb-text-1)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--bb-text-3)' }}
+          title="Page guide"
+        >
+          <HelpCircle size={15} />
+        </button>
+
         {/* Language toggle */}
         <button
           className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors"
@@ -163,6 +178,9 @@ export function TopBar({ userEmail, displayName }: TopBarProps) {
         </div>
       </div>
     </header>
+
+    <HelpGuideDrawer isOpen={guideOpen} onClose={() => setGuideOpen(false)} pathname={pathname} />
+    </>
   )
 }
 

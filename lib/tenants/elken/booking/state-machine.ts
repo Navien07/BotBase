@@ -395,7 +395,21 @@ async function createElkenBooking(
     return null
   }
 
-  return (data as { id: string } | null)?.id ?? null
+  const bookingId = (data as { id: string } | null)?.id ?? null
+
+  // Write phone back to contact record if we have one and phone is new
+  if (bookingId && ctx.contactId && state.contact) {
+    supabase
+      .from('contacts')
+      .update({ phone: state.contact })
+      .eq('id', ctx.contactId)
+      .is('phone', null)
+      .then(({ error: e }) => {
+        if (e) console.error('[ElkenSM] contact phone update error:', e)
+      })
+  }
+
+  return bookingId
 }
 
 // ─── Persistence ──────────────────────────────────────────────────────────────

@@ -174,7 +174,7 @@ export function Sidebar({ bots, role }: SidebarProps) {
           <NavLink
             href="/dashboard/overview"
             icon={LayoutDashboard}
-            label={t('Navigation.overview')}
+            label={t('Navigation.dashboard')}
             isActive={overviewActive}
             isCollapsed={collapsed}
           />
