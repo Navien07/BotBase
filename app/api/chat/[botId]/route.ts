@@ -196,7 +196,8 @@ export async function POST(
     // Run pipeline
     const { stream, result } = await runPipeline(pipelineContext)
 
-    // Elken: fire-and-forget brochure dispatch for product/health intents
+    // Elken: fire-and-forget brochure dispatch for product/health intents.
+    // Matches by filename convention — no dependency on documents.metadata column.
     if (
       isTenantBot(botId) &&
       (result.intent === 'browse_product' || result.intent === 'health_issue') &&
@@ -207,12 +208,19 @@ export async function POST(
         try {
           const { data: doc } = await supabase
             .from('documents')
-            .select('metadata')
+            .select('filename')
             .eq('id', topChunk.documentId)
             .single()
-          const productName = (doc?.metadata as Record<string, string> | null)?.product_name
-          if (productName) {
-            await dispatchBrochure(botId, externalUserId, channel, productName, result.language)
+          if (!doc?.filename) return
+
+          // Strip language suffix + extension to get the base, e.g.
+          // "beauty_elysyle-contouring-socks_en.pdf" → "beauty_elysyle-contouring-socks"
+          const base = doc.filename
+            .replace(/\.(pdf|docx?)$/i, '')
+            .replace(/_?(en|bm|zh|trilingual)$/i, '')
+
+          if (base) {
+            await dispatchBrochure(botId, externalUserId, channel, base, result.language)
           }
         } catch (err) {
           console.error('[Brochure] Dispatch failed:', err)

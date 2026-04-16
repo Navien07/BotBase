@@ -7,6 +7,7 @@ import type { ElkenFacilityId, ElkenLocation } from '@/lib/tenants/elken/config'
 import { toElkenLang } from '@/lib/tenants/elken/config'
 import type { ElkenLang } from '@/lib/tenants/elken/booking/types'
 import type { Booking, Contact } from '@/types/database'
+import { parseElkenFilename } from '@/lib/tenants/elken/kb/product-resolver'
 
 // ─── PIC Admin Notification ───────────────────────────────────────────────────
 
@@ -122,44 +123,57 @@ export async function dispatchAdminNotification(
 // ─── Brochure Delivery ────────────────────────────────────────────────────────
 
 /**
- * Send a product brochure PDF to a user via n8n webhook.
- * Language priority: [detectedLang, 'trilingual', 'en'] deduplicated.
- * PROMPT 3: full implementation stub — requires documents.brochure_url column (migration 00026).
+ * Send a product brochure PDF to a customer after a product recommendation.
+ *
+ * Matches by filename convention ({category}_{productLine}_*) so the metadata
+ * JSONB column is NOT required. Language priority: [detectedLang, 'trilingual', 'en'].
+ *
+ * @param filenameBase  The base of the source document filename, e.g.
+ *                      "beauty_elysyle-contouring-socks" (without language + extension).
+ *                      Derived from the top RAG chunk's document filename.
  */
 export async function dispatchBrochure(
   botId: string,
   userId: string,
   channel: string,
-  productName: string,
+  filenameBase: string,
   detectedLang: string
 ): Promise<boolean> {
   if (botId !== ELKEN_BOT_ID) return false
 
   const supabase = createServiceClient()
 
+  // Fetch all language variants of this product that have a brochure_url
+  const { data: candidates } = await supabase
+    .from('documents')
+    .select('filename, brochure_url, title')
+    .eq('bot_id', botId)
+    .ilike('filename', `${filenameBase}%`)
+    .not('brochure_url', 'is', null)
+    .eq('status', 'ready')
+
+  if (!candidates?.length) {
+    console.warn('[dispatchBrochure] No brochure candidates for base:', filenameBase)
+    return false
+  }
+
+  // Pick best language match: detected → trilingual → en → any
   const langPriority = [detectedLang, 'trilingual', 'en']
     .filter((v, i, a) => a.indexOf(v) === i)
 
-  let doc: { brochure_url: string; title: string } | null = null
+  type DocRow = { filename: string; brochure_url: string; title: string | null }
+  let chosen: DocRow | null = null
 
   for (const lang of langPriority) {
-    const { data } = await supabase
-      .from('documents')
-      .select('brochure_url, title')
-      .eq('bot_id', botId)
-      .eq('metadata->>product_name', productName)
-      .eq('metadata->>language', lang)
-      .not('brochure_url', 'is', null)
-      .limit(1)
-      .maybeSingle()
-
-    if (data?.brochure_url) {
-      doc = data as { brochure_url: string; title: string }
-      break
-    }
+    const match = candidates.find((c) => {
+      const parsed = parseElkenFilename(c.filename)
+      return parsed?.language === lang
+    })
+    if (match) { chosen = match as DocRow; break }
   }
 
-  if (!doc) return false
+  // Fallback: just use the first candidate
+  if (!chosen) chosen = candidates[0] as DocRow
 
   const { data: contact } = await supabase
     .from('contacts')
@@ -171,11 +185,16 @@ export async function dispatchBrochure(
 
   if (!contact?.id) return false
 
+  const displayName = chosen.title ?? filenameBase.split('_').slice(1).join(' ')
+  const filename = displayName.endsWith('.pdf') ? displayName : `${displayName}.pdf`
+
+  console.log('[dispatchBrochure] Sending:', filename, 'to contact', contact.id)
+
   return sendDocument(
     contact.id,
-    doc.brochure_url,
-    doc.title + '.pdf',
-    `Here is the brochure for ${doc.title} 📄`,
+    chosen.brochure_url,
+    filename,
+    `Here is the product brochure for your reference 📄`,
     botId
   )
 }
