@@ -145,7 +145,7 @@ export default function KnowledgePage() {
   const [docs, setDocs] = useState<DocRow[]>([])
   const [docsLoading, setDocsLoading] = useState(true)
   const [dragOver, setDragOver] = useState(false)
-  const [uploading, setUploading] = useState<string | null>(null) // filename being uploaded
+  const [uploadingCount, setUploadingCount] = useState(0)
   const [urlInput, setUrlInput] = useState('')
   const [scraping, setScraping] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -224,17 +224,26 @@ export default function KnowledgePage() {
   // ─── File upload ─────────────────────────────────────────────────────────
 
   async function handleFiles(files: FileList | File[], folderOverride?: string) {
-    const list = Array.from(files)
-    for (const file of list) {
+    const list = Array.from(files).filter((file) => {
       if (!ALLOWED_MIME.has(file.type)) {
         toast.error(`${file.name}: unsupported file type`)
-        continue
+        return false
       }
       if (file.size > MAX_FILE_SIZE) {
         toast.error(`${file.name}: exceeds 20 MB limit`)
-        continue
+        return false
       }
-      await uploadFile(file, (folderOverride ?? uploadFolder) || undefined)
+      return true
+    })
+
+    // Process up to 3 files concurrently
+    const CONCURRENCY = 3
+    for (let i = 0; i < list.length; i += CONCURRENCY) {
+      await Promise.all(
+        list.slice(i, i + CONCURRENCY).map((file) =>
+          uploadFile(file, (folderOverride ?? uploadFolder) || undefined)
+        )
+      )
     }
   }
 
@@ -275,7 +284,7 @@ export default function KnowledgePage() {
   }
 
   async function uploadFile(file: File, folder?: string) {
-    setUploading(file.name)
+    setUploadingCount((n) => n + 1)
     try {
       // 1. Create document record + get signed upload URL
       const metaRes = await fetch(`/api/ingest/${botId}`, {
@@ -327,7 +336,7 @@ export default function KnowledgePage() {
       toast.error(err instanceof Error ? err.message : 'Upload failed')
       await fetchDocs()
     } finally {
-      setUploading(null)
+      setUploadingCount((n) => n - 1)
     }
   }
 
@@ -600,7 +609,7 @@ export default function KnowledgePage() {
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
-            onClick={() => !uploading && fileInputRef.current?.click()}
+            onClick={() => !uploadingCount && fileInputRef.current?.click()}
             className="rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors"
             style={{
               borderColor: dragOver ? 'var(--bb-primary)' : 'var(--bb-border)',
@@ -625,11 +634,11 @@ export default function KnowledgePage() {
               className="hidden"
               onChange={(e) => e.target.files && handleFolderFiles(e.target.files)}
             />
-            {uploading ? (
+            {uploadingCount > 0 ? (
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--bb-primary)' }} />
                 <p className="text-sm" style={{ color: 'var(--bb-text-2)' }}>
-                  Uploading <span style={{ color: 'var(--bb-text-1)' }}>{uploading}</span>…
+                  Processing <span style={{ color: 'var(--bb-text-1)' }}>{uploadingCount} file{uploadingCount > 1 ? 's' : ''}</span>…
                   {uploadFolder && <span style={{ color: 'var(--bb-text-3)' }}> → {uploadFolder}</span>}
                 </p>
               </div>
