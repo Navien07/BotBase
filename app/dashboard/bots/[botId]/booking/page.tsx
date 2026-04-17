@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, use } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { ELKEN_BOT_ID } from '@/lib/tenants/elken/config'
 import {
   createColumnHelper,
@@ -928,7 +929,8 @@ interface BotMeta {
     booking_type?: string
     reminder_24h?: boolean
   }
-  google_refresh_token?: string | null
+  has_google_connected?: boolean
+  google_connected_email?: string | null
 }
 
 // ─── Elken PIC Notifications Card ────────────────────────────────────────────
@@ -1035,11 +1037,16 @@ function ElkenPicCard({ botId }: { botId: string }) {
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
-function SettingsTab({ botId }: { botId: string }) {
+function SettingsTab({ botId, googleParam, googleReason }: {
+  botId: string
+  googleParam?: string | null
+  googleReason?: string | null
+}) {
   const [bot, setBot] = useState<BotMeta | null>(null)
   const [loading, setLoading] = useState(true)
   const [hours, setHours] = useState<OperatingHoursRow[]>([])
   const [hoursLoaded, setHoursLoaded] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   useEffect(() => {
     fetch(`/api/config/${botId}/settings`)
@@ -1054,6 +1061,29 @@ function SettingsTab({ botId }: { botId: string }) {
       .catch(() => setHoursLoaded(true))
   }, [botId])
 
+  async function handleDisconnect() {
+    if (!confirm('Disconnect Google Calendar? This will stop syncing bookings and clear all calendar mappings.')) return
+    setDisconnecting(true)
+    try {
+      const res = await fetch('/api/auth/google/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botId }),
+      })
+      if (!res.ok) {
+        const d = await res.json() as { error?: string }
+        throw new Error(d.error ?? 'Failed to disconnect')
+      }
+      // Update local state immediately — no page reload needed
+      setBot((prev) => prev ? { ...prev, has_google_connected: false, google_connected_email: null } : prev)
+      toast.success('Google Calendar disconnected')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
   if (loading) {
     return <p className="text-sm py-8 text-center" style={{ color: 'var(--bb-text-3)' }}>Loading settings…</p>
   }
@@ -1062,7 +1092,7 @@ function SettingsTab({ botId }: { botId: string }) {
     return <p className="text-sm py-8 text-center" style={{ color: 'var(--bb-text-3)' }}>Unable to load settings.</p>
   }
 
-  const calendarConnected = !!bot.google_refresh_token
+  const calendarConnected = !!bot.has_google_connected
 
   return (
     <div className="flex flex-col gap-6 max-w-lg">
@@ -1133,12 +1163,52 @@ function SettingsTab({ botId }: { botId: string }) {
             {calendarConnected ? 'Connected' : 'Not connected'}
           </span>
         </div>
+
+        {/* OAuth result banners */}
+        {googleParam === 'connected' && (
+          <div className="flex items-center gap-2 text-xs px-3 py-2 rounded mb-3"
+            style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
+            <Check size={12} /> Google Calendar connected successfully.
+          </div>
+        )}
+        {googleParam === 'cancelled' && (
+          <div className="flex items-center gap-2 text-xs px-3 py-2 rounded mb-3"
+            style={{ background: 'var(--bb-surface-3)', color: 'var(--bb-text-2)', border: '1px solid var(--bb-border)' }}>
+            <X size={12} /> Connection cancelled. You can try again below.
+          </div>
+        )}
+        {googleParam === 'error' && (
+          <div className="flex items-center gap-2 text-xs px-3 py-2 rounded mb-3"
+            style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <AlertCircle size={12} />
+            {googleReason === 'expired'
+              ? 'Connection request expired. Please try again.'
+              : googleReason === 'auth_mismatch'
+              ? 'Session mismatch — please sign in again and retry.'
+              : googleReason === 'no_refresh_token'
+              ? 'Google did not return a refresh token. Please revoke access at myaccount.google.com and try again.'
+              : 'Connection failed. Please try again or check server logs.'}
+          </div>
+        )}
+
         <p className="text-xs mb-3" style={{ color: 'var(--bb-text-3)' }}>
           {calendarConnected
-            ? 'Confirmed bookings will be synced to your Google Calendar.'
+            ? bot.google_connected_email
+              ? `Connected as ${bot.google_connected_email}. Confirmed bookings will be synced to your Google Calendar.`
+              : 'Confirmed bookings will be synced to your Google Calendar.'
             : 'Connect Google Calendar to automatically sync confirmed bookings.'}
         </p>
-        {!calendarConnected && (
+
+        {calendarConnected ? (
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded font-medium"
+            style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', opacity: disconnecting ? 0.6 : 1 }}
+          >
+            <X size={12} /> {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+          </button>
+        ) : (
           <a
             href={`/api/auth/google?botId=${botId}`}
             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded font-medium"
@@ -1167,7 +1237,12 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 export default function BookingPage({ params }: { params: Promise<{ botId: string }> }) {
   const { botId } = use(params)
-  const [tab, setTab] = useState<TabId>('bookings')
+  const searchParams = useSearchParams()
+  const googleParam = searchParams.get('google')
+  const googleReason = searchParams.get('reason')
+  // Auto-switch to settings tab when returning from Google OAuth
+  const initialTab = (searchParams.get('tab') as TabId | null) ?? 'bookings'
+  const [tab, setTab] = useState<TabId>(initialTab)
   const [sheetOpen, setSheetOpen] = useState(false)
 
   return (
@@ -1216,7 +1291,7 @@ export default function BookingPage({ params }: { params: Promise<{ botId: strin
       {/* Tab content */}
       {tab === 'bookings' && <BookingsTab botId={botId} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen} />}
       {tab === 'services' && <ServicesTab botId={botId} />}
-      {tab === 'settings' && <SettingsTab botId={botId} />}
+      {tab === 'settings' && <SettingsTab botId={botId} googleParam={googleParam} googleReason={googleReason} />}
     </div>
   )
 }

@@ -198,11 +198,12 @@ export async function POST(
 
     // Elken: fire-and-forget brochure dispatch for product/health intents.
     // Matches by filename convention — no dependency on documents.metadata column.
-    if (
+    const brochureTriggered = (
       isTenantBot(botId) &&
       (result.intent === 'browse_product' || result.intent === 'health_issue') &&
       pipelineContext.ragChunks.length > 0
-    ) {
+    )
+    if (brochureTriggered) {
       const topChunk = pipelineContext.ragChunks[0]
       void (async () => {
         try {
@@ -227,6 +228,22 @@ export async function POST(
         }
       })()
     }
+
+    // Step 11: record brochure delivery decision in pipeline debug.
+    // priorSteps inside step-10-llm is the same array reference, so this will
+    // be present when logConversation fires after the stream finishes.
+    result.steps.push({
+      step: 11,
+      name: 'PDF Brochure Delivery',
+      status: 'pass',
+      durationMs: 0,
+      data: {
+        triggered: brochureTriggered,
+        document_id: brochureTriggered ? pipelineContext.ragChunks[0].documentId : null,
+        language: result.language,
+        note: 'Brochure dispatched fire-and-forget via native channel dispatcher',
+      },
+    })
 
     // Allow contact upsert to settle, then link contact_id to conversation
     await contactPromise.catch(() => null)

@@ -139,6 +139,20 @@ export function MessageBubble({
               {msg.intent}
             </span>
           )}
+          {(() => {
+            const brochureStep = msg.pipeline_debug?.steps?.find(s => s.step === 11)
+            if (!brochureStep || brochureStep.data?.triggered !== true) return null
+            const lang = typeof brochureStep.data.language === 'string' ? brochureStep.data.language.toUpperCase() : ''
+            return (
+              <span
+                className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1"
+                style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}
+                title="PDF brochure dispatched to this conversation"
+              >
+                📄 Brochure{lang ? ` · ${lang}` : ''}
+              </span>
+            )
+          })()}
         </div>
 
         {/* ── Response / Pipeline tab panel (bot messages only) ────────── */}

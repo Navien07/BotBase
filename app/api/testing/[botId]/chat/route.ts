@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { runPipeline } from '@/lib/pipeline'
+import { isTenantBot } from '@/lib/tenants'
 import type { PipelineContext } from '@/lib/pipeline'
 import type { Bot } from '@/types/database'
 
@@ -122,6 +123,26 @@ export async function POST(
     }
 
     const { stream, result } = await runPipeline(pipelineContext)
+
+    // Step 11: PDF Brochure Delivery — append before encoding so it appears in
+    // the header steps immediately and in DB (priorSteps is the same array ref)
+    const brochureTriggered = (
+      isTenantBot(botId) &&
+      (result.intent === 'browse_product' || result.intent === 'health_issue') &&
+      pipelineContext.ragChunks.length > 0
+    )
+    result.steps.push({
+      step: 11,
+      name: 'PDF Brochure Delivery',
+      status: 'pass',
+      durationMs: 0,
+      data: {
+        triggered: brochureTriggered,
+        document_id: brochureTriggered ? pipelineContext.ragChunks[0].documentId : null,
+        language: result.language,
+        note: 'Brochure dispatched fire-and-forget via native channel dispatcher',
+      },
+    })
 
     // Encode compact step metadata as base64 so the client can populate the
     // pipeline panel immediately — no DB round-trip needed.

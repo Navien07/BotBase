@@ -146,6 +146,9 @@ export interface Bot {
   google_access_token: string | null
   google_refresh_token: string | null
   google_token_expiry: string | null
+  google_calendar_id: string | null
+  google_resource_calendars: Record<string, string> | null
+  google_connected_email: string | null
   created_at: string
   updated_at: string
 }
