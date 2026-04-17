@@ -10,6 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getTenantBookingHandler } from '@/lib/tenants'
 import type { PipelineContext, StepResult } from './types'
 import type { BookingState, Service } from '@/lib/booking/types'
+import { parseMYDatetime, defaultStartTime } from '@/lib/booking/datetime'
 
 export async function step8Booking(ctx: PipelineContext): Promise<StepResult> {
   const start = Date.now()
@@ -130,14 +131,11 @@ async function createBookingRecord(
   const supabase = createServiceClient()
   const d = state.data
 
-  // Try to parse datetime from free text; fall back to now + 1 day
-  let startTime: Date
-  try {
-    const parsed = new Date(d.datetime ?? '')
-    startTime = isNaN(parsed.getTime()) ? defaultStartTime() : parsed
-  } catch {
-    startTime = defaultStartTime()
-  }
+  const parsed = parseMYDatetime(d.datetime)
+  const startTime: Date = parsed ?? defaultStartTime()
+  console.log(
+    `[Booking] datetime captured: "${d.datetime ?? 'null'}" → parsed: "${parsed?.toISOString() ?? 'null'}" → stored: "${startTime.toISOString()}" via ${parsed ? 'captured' : 'default'}`
+  )
 
   await supabase.from('bookings').insert({
     bot_id: ctx.botId,
@@ -156,9 +154,3 @@ async function createBookingRecord(
   })
 }
 
-function defaultStartTime(): Date {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  d.setHours(10, 0, 0, 0)
-  return d
-}

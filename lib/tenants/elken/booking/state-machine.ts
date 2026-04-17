@@ -13,6 +13,7 @@ import { checkElkenSlot } from '@/lib/tenants/elken/booking/slot-checker'
 import { dispatchAdminNotification, scheduleElkenNotifications } from '@/lib/tenants/elken/booking/notifications'
 import type { ElkenBookingState, ElkenLang, ElkenTrialType } from '@/lib/tenants/elken/booking/types'
 import type { PipelineContext, StepResult } from '@/lib/pipeline/types'
+import { parseMYDatetime, defaultStartTime, todayMYT } from '@/lib/booking/datetime'
 
 const TTL_MS = 30 * 60 * 1000
 
@@ -301,9 +302,16 @@ async function extractDetailsWithHaiku(
 
   try {
     const isInhaler = facilityId === 'inhaler'
+    const today = todayMYT()
     const system = `Extract booking details from the customer's message as a JSON object.
+Today is ${today} (Malaysia Time, UTC+8).
 Return ONLY valid JSON with these fields:
-- preferred_datetime: string or null (the date/time they want, keep as stated)
+- preferred_datetime: string or null — MUST be ISO 8601 format YYYY-MM-DDTHH:mm in Malaysia time. Examples:
+  "I want 25 May at 2pm" → "2026-05-25T14:00"
+  "next Saturday 10am" → resolve to actual date e.g. "2026-04-25T10:00"
+  "tomorrow 3pm" → resolve to actual date e.g. "2026-04-18T15:00"
+  "20/05/2026 at 4:30pm" → "2026-05-20T16:30"
+  If only a date with no time, use T10:00. If no date found, return null.
 - customer_name: string or null
 - contact: string or null (phone number, keep as stated)
 - is_member: true, false, or null (true = yes/member, false = no/not a member, null = not mentioned)
@@ -318,17 +326,24 @@ Reply ONLY with the JSON object. No explanation.`
     })
 
     const text = anthropic.getTextContent(res).trim()
+    console.log(`[ElkenSM:Haiku] raw response: ${text}`)
+
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return nullResult
+    if (!jsonMatch) {
+      console.error('[ElkenSM:Haiku] no JSON found in response')
+      return nullResult
+    }
 
     const parsed = JSON.parse(jsonMatch[0]) as Partial<ExtractedDetails>
-    return {
+    const result = {
       preferred_datetime: typeof parsed.preferred_datetime === 'string' ? parsed.preferred_datetime : null,
       customer_name:      typeof parsed.customer_name === 'string'      ? parsed.customer_name      : null,
       contact:            typeof parsed.contact === 'string'            ? parsed.contact            : null,
       is_member:          typeof parsed.is_member === 'boolean'         ? parsed.is_member          : null,
       duration:           parsed.duration === '30min' || parsed.duration === '60min' ? parsed.duration : null,
     }
+    console.log(`[ElkenSM:Haiku] extracted preferred_datetime: "${result.preferred_datetime ?? 'null'}"`)
+    return result
   } catch (err) {
     console.error('[ElkenSM] Haiku extraction failed:', err)
     return nullResult
@@ -343,13 +358,20 @@ async function createElkenBooking(
 ): Promise<string | null> {
   const supabase = createServiceClient()
 
-  let startTime: Date
-  try {
-    const parsed = new Date(state.preferred_datetime ?? '')
-    startTime = isNaN(parsed.getTime()) ? defaultStartTime() : parsed
-  } catch {
-    startTime = defaultStartTime()
-  }
+  // ── Diagnostic: full state snapshot at insert time ───────────────────────
+  console.log(
+    `[ElkenSM:insert] step="${state.step}" ` +
+    `preferred_datetime="${state.preferred_datetime ?? 'NULL'}" ` +
+    `customer_name="${state.customer_name ?? 'NULL'}" ` +
+    `facility="${state.facility ?? 'NULL'}" ` +
+    `is_member=${state.is_member ?? 'NULL'}`
+  )
+
+  const parsed = parseMYDatetime(state.preferred_datetime)
+  const startTime: Date = parsed ?? defaultStartTime()
+  console.log(
+    `[ElkenSM:datetime] captured="${state.preferred_datetime ?? 'null'}" → parsed="${parsed?.toISOString() ?? 'null'}" → stored="${startTime.toISOString()}" via ${parsed ? 'captured' : 'DEFAULT_FALLBACK'}`
+  )
 
   const facilityId  = state.facility as ElkenFacilityId | undefined
   const facilityLbl = facilityId
@@ -508,9 +530,3 @@ function blockResult(
   }
 }
 
-function defaultStartTime(): Date {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  d.setHours(10, 0, 0, 0)
-  return d
-}

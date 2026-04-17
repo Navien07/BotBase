@@ -26,13 +26,14 @@ import { OperatingHours } from '@/components/booking/OperatingHours'
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<BookingStatus, { bg: string; text: string; label: string }> = {
-  pending:   { bg: 'rgba(245,158,11,0.15)',  text: '#f59e0b', label: 'Pending' },
-  confirmed: { bg: 'rgba(34,197,94,0.15)',   text: '#22c55e', label: 'Confirmed' },
-  reminded:  { bg: 'rgba(34,211,238,0.15)',  text: '#22d3ee', label: 'Reminded' },
-  completed: { bg: 'rgba(99,102,241,0.15)',  text: '#818cf8', label: 'Completed' },
-  no_show:   { bg: 'rgba(239,68,68,0.15)',   text: '#ef4444', label: 'No-show' },
-  cancelled: { bg: 'rgba(100,100,100,0.15)', text: '#6b7280', label: 'Cancelled' },
-  walk_in:   { bg: 'rgba(34,211,238,0.1)',   text: '#22d3ee', label: 'Walk-in' },
+  pending:       { bg: 'rgba(245,158,11,0.15)',  text: '#f59e0b', label: 'Pending' },
+  trial_pending: { bg: 'rgba(251,146,60,0.15)',  text: '#fb923c', label: 'Trial' },
+  confirmed:     { bg: 'rgba(34,197,94,0.15)',   text: '#22c55e', label: 'Confirmed' },
+  reminded:      { bg: 'rgba(34,211,238,0.15)',  text: '#22d3ee', label: 'Reminded' },
+  completed:     { bg: 'rgba(99,102,241,0.15)',  text: '#818cf8', label: 'Completed' },
+  no_show:       { bg: 'rgba(239,68,68,0.15)',   text: '#ef4444', label: 'No-show' },
+  cancelled:     { bg: 'rgba(100,100,100,0.15)', text: '#6b7280', label: 'Cancelled' },
+  walk_in:       { bg: 'rgba(34,211,238,0.1)',   text: '#22d3ee', label: 'Walk-in' },
 }
 
 function StatusBadge({ status }: { status: BookingStatus }) {
