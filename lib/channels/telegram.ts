@@ -254,6 +254,34 @@ export async function sendDocument(
   }
 }
 
+
+export async function sendPhoto(
+  chatId: number,
+  photoUrl: string,
+  caption: string,
+  botToken: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${botToken}/sendPhoto`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          photo: photoUrl,
+          caption: caption || undefined,
+          parse_mode: 'Markdown',
+        })
+      }
+    )
+    return res.ok
+  } catch (error) {
+    console.error('[telegram] sendPhoto error:', error)
+    return false
+  }
+}
+
 export async function setupWebhook(
   botToken: string,
   webhookUrl: string,

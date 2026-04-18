@@ -256,6 +256,38 @@ export async function sendDocument(
   }
 }
 
+
+export async function sendImage(
+  to: string,
+  imageUrl: string,
+  caption: string,
+  accessToken: string,
+  phoneNumberId: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to,
+          type: 'image',
+          image: { link: imageUrl, caption: caption || undefined }
+        })
+      }
+    )
+    return res.ok
+  } catch (error) {
+    console.error('[whatsapp] sendImage error:', error)
+    return false
+  }
+}
+
 export async function markAsRead(
   messageId: string,
   accessToken: string,

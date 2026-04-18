@@ -1,6 +1,7 @@
 import { anthropic } from '@/lib/anthropic'
 import { createServiceClient } from '@/lib/supabase/service'
 import { analyzeSentiment } from '@/lib/sentiment/analyzer'
+import { runTenantHooks } from '@/lib/tenants'
 import type { PipelineContext, StepResult } from './types'
 import type { MessageParam } from '@/lib/anthropic'
 
@@ -52,6 +53,16 @@ export async function step10Llm(
       logConversation(ctx, fullResponse, latencyMs, priorSteps).catch((e) =>
         console.error('[step-10-llm] logConversation error:', e)
       )
+
+      // Fire-and-forget: per-tenant post-stream hooks (no-ops for unregistered bots)
+      runTenantHooks('post-stream', ctx.botId, {
+        botId: ctx.botId,
+        conversationId: ctx.conversationId,
+        contactId: ctx.contactId,
+        userMessage: ctx.message,
+        assistantResponse: fullResponse,
+        bot: ctx.bot,
+      }).catch((e) => console.error('[step-10-llm] runTenantHooks error:', e))
     }
   })()
 

@@ -88,3 +88,46 @@ export async function sendDocument(
 
   return false
 }
+
+export async function sendPhoto(
+  contactId: string,
+  photoUrl: string,
+  caption: string,
+  botId: string
+): Promise<boolean> {
+  const supabase = createServiceClient()
+
+  const { data: contact } = await supabase
+    .from('contacts')
+    .select('external_id, channel')
+    .eq('id', contactId)
+    .eq('bot_id', botId)
+    .single()
+
+  if (!contact) return false
+
+  const { data: channelConfig } = await supabase
+    .from('channel_configs')
+    .select('config')
+    .eq('bot_id', botId)
+    .eq('channel', contact.channel)
+    .single()
+
+  if (!channelConfig?.config) return false
+
+  const config = channelConfig.config as Record<string, string>
+
+  if (contact.channel === 'telegram') {
+    const botToken = await decrypt(config.bot_token)
+    return telegram.sendPhoto(Number(contact.external_id), photoUrl, caption, botToken)
+  }
+
+  if (contact.channel === 'whatsapp') {
+    const accessToken = await decrypt(config.access_token)
+    return whatsapp.sendImage(
+      contact.external_id, photoUrl, caption, accessToken, config.phone_number_id
+    )
+  }
+
+  return false
+}
