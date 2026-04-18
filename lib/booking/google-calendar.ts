@@ -46,7 +46,14 @@ export async function createCalendarEvent(
       attendees: booking.customer_email ? [{ email: booking.customer_email }] : [],
     }
 
-    const res = await fetch(`${CALENDAR_API}/calendars/primary/events`, {
+    // Resolve calendarId from resource mapping (Commit 3b Chunk B)
+    const facilityId = (booking.metadata as Record<string, unknown>)?.facility_id as string | undefined
+    const locationId = (booking.metadata as Record<string, unknown>)?.location_id as string | undefined
+    const resourceKey = facilityId && locationId ? `${facilityId}_${locationId}` : null
+    const resourceMap = (bot.google_resource_calendars ?? {}) as Record<string, string>
+    const calendarId = (resourceKey && resourceMap[resourceKey]) ? resourceMap[resourceKey] : 'primary'
+
+    const res = await fetch(`${CALENDAR_API}/calendars/${calendarId}/events`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -92,6 +99,11 @@ export async function updateCalendarEvent(
       console.error('[GoogleCalendar] SKIP update — getValidAccessToken returned null for bot', bot.id)
       return
     }
+
+    // TODO(Issue 4): update/delete still targets 'primary' calendar.
+    // If event was created on a mapped resource calendar, this will silently
+    // fail. Fix when booking row stores google_calendar_id (Issue 4 refactor).
+    console.warn('[GoogleCalendar] update/delete targets primary calendar — mapped resource calendar not supported until Issue 4 refactor')
 
     const patch: Record<string, unknown> = {}
 
@@ -144,6 +156,11 @@ export async function deleteCalendarEvent(eventId: string, bot: Bot): Promise<vo
       console.error('[GoogleCalendar] SKIP delete — getValidAccessToken returned null for bot', bot.id)
       return
     }
+
+    // TODO(Issue 4): update/delete still targets 'primary' calendar.
+    // If event was created on a mapped resource calendar, this will silently
+    // fail. Fix when booking row stores google_calendar_id (Issue 4 refactor).
+    console.warn('[GoogleCalendar] update/delete targets primary calendar — mapped resource calendar not supported until Issue 4 refactor')
 
     const res = await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
       method: 'DELETE',

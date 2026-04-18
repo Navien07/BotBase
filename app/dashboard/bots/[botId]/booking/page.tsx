@@ -16,6 +16,7 @@ import {
   ChevronsUpDown, CalendarDays, List, Check, X, Clock,
   MapPin, Phone, User, Calendar, Settings, Briefcase,
   ToggleLeft, ToggleRight, Edit2, Trash2, AlertCircle,
+  Loader2, RefreshCw,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -922,6 +923,122 @@ function ServicesTab({ botId }: { botId: string }) {
   )
 }
 
+// ─── Google Calendar Resource Map ─────────────────────────────────────────────
+
+const ELKEN_RESOURCE_MAP = [
+  { key: 'bed_female_okr',    label: 'Female Bed',   location: 'OKR'    },
+  { key: 'bed_male_okr',      label: 'Male Bed',     location: 'OKR'    },
+  { key: 'room_small_okr',    label: 'Meeting Room', location: 'OKR'    },
+  { key: 'room_large_okr',    label: 'Meeting Hall', location: 'OKR'    },
+  { key: 'inhaler_okr',       label: 'Inhaler',      location: 'OKR'    },
+  { key: 'bed_female_subang', label: 'Female Bed',   location: 'Subang' },
+  { key: 'bed_male_subang',   label: 'Male Bed',     location: 'Subang' },
+  { key: 'inhaler_subang',    label: 'Inhaler',      location: 'Subang' },
+] as const
+
+type ResourceKey = typeof ELKEN_RESOURCE_MAP[number]['key']
+
+function ResourceMapRow({
+  botId,
+  resourceKey,
+  label,
+  location,
+  calendarList,
+  currentCalendarId,
+  isDuplicate,
+  onChange,
+  onCalendarCreated,
+}: {
+  botId: string
+  resourceKey: ResourceKey
+  label: string
+  location: string
+  calendarList: { id: string; summary: string }[]
+  currentCalendarId: string
+  isDuplicate: boolean
+  onChange: (calendarId: string) => void
+  onCalendarCreated: (newCal: { id: string; summary: string }) => void
+}) {
+  const [creating, setCreating] = useState(false)
+
+  async function handleNewCalendar() {
+    setCreating(true)
+    try {
+      const name = `IceBot — ${label} ${location}`
+      const res = await fetch(`/api/bots/${botId}/google-calendar/calendars`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      if (!res.ok) {
+        const d = await res.json() as { error?: string }
+        throw new Error(d.error ?? 'Failed to create calendar')
+      }
+      const data = await res.json() as { id: string; summary: string }
+      onCalendarCreated({ id: data.id, summary: data.summary })
+      onChange(data.id)
+      toast.success(`Created "${data.summary}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create calendar')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <div
+      className="flex items-center gap-2 py-2"
+      style={{ borderBottom: '1px solid var(--bb-border-subtle)' }}
+    >
+      <div className="flex-1 min-w-0">
+        <span className="text-sm" style={{ color: 'var(--bb-text-1)' }}>{label}</span>
+        <span className="text-xs ml-2" style={{ color: 'var(--bb-text-3)' }}>{location}</span>
+        {isDuplicate && (
+          <span
+            className="ml-2 text-xs"
+            style={{ color: 'var(--bb-warning)' }}
+            title="Same calendar assigned to another resource"
+          >
+            ⚠
+          </span>
+        )}
+      </div>
+      <select
+        value={currentCalendarId}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-xs px-2 py-1.5 rounded outline-none"
+        style={{
+          background: 'var(--bb-surface-3)',
+          border: '1px solid var(--bb-border)',
+          color: currentCalendarId ? 'var(--bb-text-1)' : 'var(--bb-text-3)',
+          maxWidth: '200px',
+        }}
+      >
+        <option value="">Primary calendar</option>
+        {calendarList.map((c) => (
+          <option key={c.id} value={c.id}>{c.summary}</option>
+        ))}
+      </select>
+      <button
+        onClick={handleNewCalendar}
+        disabled={creating}
+        className="flex items-center gap-1 text-xs px-2 py-1.5 rounded flex-shrink-0"
+        style={{
+          background: 'var(--bb-surface-3)',
+          border: '1px solid var(--bb-border)',
+          color: creating ? 'var(--bb-text-3)' : 'var(--bb-primary)',
+          cursor: creating ? 'not-allowed' : 'pointer',
+          opacity: creating ? 0.6 : 1,
+        }}
+        title={`Create "IceBot — ${label} ${location}"`}
+      >
+        {creating ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+        {!creating && 'New'}
+      </button>
+    </div>
+  )
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 interface BotMeta {
@@ -1047,6 +1164,11 @@ function SettingsTab({ botId, googleParam, googleReason }: {
   const [hours, setHours] = useState<OperatingHoursRow[]>([])
   const [hoursLoaded, setHoursLoaded] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [calendarList, setCalendarList] = useState<{ id: string; summary: string }[]>([])
+  const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [calendarListLoading, setCalendarListLoading] = useState(false)
+  const [calendarListError, setCalendarListError] = useState<string | null>(null)
+  const [savingMap, setSavingMap] = useState(false)
 
   useEffect(() => {
     fetch(`/api/config/${botId}/settings`)
@@ -1060,6 +1182,26 @@ function SettingsTab({ botId, googleParam, googleReason }: {
       .then((d: { hours?: OperatingHoursRow[] }) => { setHours(d.hours ?? []); setHoursLoaded(true) })
       .catch(() => setHoursLoaded(true))
   }, [botId])
+
+  const fetchCalendarData = useCallback(() => {
+    if (!bot?.has_google_connected) return
+    setCalendarListLoading(true)
+    setCalendarListError(null)
+    Promise.all([
+      fetch(`/api/bots/${botId}/google-calendar/calendars`).then((r) => r.json()),
+      fetch(`/api/bots/${botId}/google-calendar/resource-map`).then((r) => r.json()),
+    ])
+      .then(([calData, mapData]) => {
+        const cal = calData as { calendars?: { id: string; summary: string }[] }
+        const map = mapData as { mapping?: Record<string, string> }
+        setCalendarList(cal.calendars ?? [])
+        setMapping(map.mapping ?? {})
+      })
+      .catch(() => setCalendarListError('Could not load calendars'))
+      .finally(() => setCalendarListLoading(false))
+  }, [botId, bot?.has_google_connected])
+
+  useEffect(() => { fetchCalendarData() }, [fetchCalendarData])
 
   async function handleDisconnect() {
     if (!confirm('Disconnect Google Calendar? This will stop syncing bookings and clear all calendar mappings.')) return
@@ -1081,6 +1223,27 @@ function SettingsTab({ botId, googleParam, googleReason }: {
       toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
     } finally {
       setDisconnecting(false)
+    }
+  }
+
+  async function handleSaveMapping() {
+    setSavingMap(true)
+    try {
+      const res = await fetch(`/api/bots/${botId}/google-calendar/resource-map`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mapping }),
+      })
+      if (!res.ok) {
+        const d = await res.json() as { error?: string }
+        throw new Error(d.error ?? 'Failed to save')
+      }
+      toast.success('Mapping saved')
+    } catch (err) {
+      console.error('[SettingsTab] handleSaveMapping failed:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to save mapping')
+    } finally {
+      setSavingMap(false)
     }
   }
 
@@ -1218,6 +1381,99 @@ function SettingsTab({ botId, googleParam, googleReason }: {
           </a>
         )}
       </div>
+
+      {/* Google Calendar Resource Mapping — shown only when connected */}
+      {calendarConnected && (
+        <div
+          className="rounded-xl p-4"
+          style={{ background: 'var(--bb-surface-2)', border: '1px solid var(--bb-border)' }}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm font-medium" style={{ color: 'var(--bb-text-1)' }}>Resource Calendars</p>
+            {calendarListLoading && (
+              <Loader2 size={13} className="animate-spin" style={{ color: 'var(--bb-text-3)' }} />
+            )}
+          </div>
+          <p className="text-xs mb-4" style={{ color: 'var(--bb-text-3)' }}>
+            Map each resource to a specific Google Calendar. Unmapped resources use your primary calendar.
+          </p>
+
+          {calendarListError ? (
+            <div
+              className="flex items-center justify-between text-xs px-3 py-2 rounded mb-3"
+              style={{
+                background: 'rgba(239,68,68,0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239,68,68,0.2)',
+              }}
+            >
+              <span>{calendarListError}</span>
+              <button
+                onClick={fetchCalendarData}
+                className="flex items-center gap-1 ml-3 flex-shrink-0"
+                style={{ color: '#ef4444' }}
+              >
+                <RefreshCw size={11} /> Retry
+              </button>
+            </div>
+          ) : calendarListLoading ? (
+            <div className="flex flex-col gap-2">
+              {ELKEN_RESOURCE_MAP.map(({ key }) => (
+                <div
+                  key={key}
+                  className="h-8 rounded animate-pulse"
+                  style={{ background: 'var(--bb-surface-3)' }}
+                />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col">
+                {ELKEN_RESOURCE_MAP.map(({ key, label, location }) => {
+                  const isDuplicate =
+                    !!mapping[key] &&
+                    ELKEN_RESOURCE_MAP.some((r) => r.key !== key && mapping[r.key] === mapping[key])
+                  return (
+                    <ResourceMapRow
+                      key={key}
+                      botId={botId}
+                      resourceKey={key}
+                      label={label}
+                      location={location}
+                      calendarList={calendarList}
+                      currentCalendarId={mapping[key] ?? ''}
+                      isDuplicate={isDuplicate}
+                      onChange={(calId) =>
+                        setMapping((prev) => ({ ...prev, [key]: calId }))
+                      }
+                      onCalendarCreated={(newCal) =>
+                        setCalendarList((prev) =>
+                          [...prev, newCal].sort((a, b) =>
+                            a.summary.localeCompare(b.summary)
+                          )
+                        )
+                      }
+                    />
+                  )
+                })}
+              </div>
+              <button
+                onClick={handleSaveMapping}
+                disabled={savingMap}
+                className="mt-4 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded font-medium"
+                style={{
+                  background: savingMap ? 'var(--bb-surface-3)' : 'var(--bb-primary)',
+                  color: savingMap ? 'var(--bb-text-3)' : '#fff',
+                  cursor: savingMap ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {savingMap && <Loader2 size={11} className="animate-spin" />}
+                {savingMap ? 'Saving…' : 'Save Mapping'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* PIC Notifications — Elken only */}
       {botId === ELKEN_BOT_ID && <ElkenPicCard botId={botId} />}
