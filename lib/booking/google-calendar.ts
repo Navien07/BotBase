@@ -9,12 +9,24 @@ export async function createCalendarEvent(
   booking: Booking,
   bot: Bot
 ): Promise<string | null> {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return null
-  if (!bot.google_access_token) return null
+  console.log('[GoogleCalendar] createCalendarEvent START bookingId=', booking.id, 'botId=', bot.id)
+
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn('[GoogleCalendar] SKIP — GOOGLE env vars missing')
+    return null
+  }
+  if (!bot.google_access_token) {
+    console.warn('[GoogleCalendar] SKIP — no google_access_token on bot', bot.id)
+    return null
+  }
 
   try {
     const token = await getValidAccessToken(bot)
-    if (!token) return null
+    if (!token) {
+      console.error('[GoogleCalendar] SKIP — getValidAccessToken returned null for bot', bot.id)
+      return null
+    }
+    console.log('[GoogleCalendar] token obtained, calling Calendar API')
 
     const endTime =
       booking.end_time ??
@@ -43,10 +55,17 @@ export async function createCalendarEvent(
       body: JSON.stringify(event),
     })
 
-    if (!res.ok) return null
+    if (!res.ok) {
+      const errBody = await res.text()
+      console.error('[GoogleCalendar] Calendar API non-ok:', res.status, errBody)
+      return null
+    }
+
     const data = (await res.json()) as { id?: string }
+    console.log('[GoogleCalendar] event created:', data.id, 'bookingId=', booking.id)
     return data.id ?? null
-  } catch {
+  } catch (err) {
+    console.error('[GoogleCalendar] createCalendarEvent threw:', err)
     return null
   }
 }
@@ -56,12 +75,23 @@ export async function updateCalendarEvent(
   updates: Partial<Booking>,
   bot: Bot
 ): Promise<void> {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return
-  if (!bot.google_access_token) return
+  console.log('[GoogleCalendar] updateCalendarEvent START eventId=', eventId, 'botId=', bot.id)
+
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn('[GoogleCalendar] SKIP update — GOOGLE env vars missing')
+    return
+  }
+  if (!bot.google_access_token) {
+    console.warn('[GoogleCalendar] SKIP update — no google_access_token on bot', bot.id)
+    return
+  }
 
   try {
     const token = await getValidAccessToken(bot)
-    if (!token) return
+    if (!token) {
+      console.error('[GoogleCalendar] SKIP update — getValidAccessToken returned null for bot', bot.id)
+      return
+    }
 
     const patch: Record<string, unknown> = {}
 
@@ -75,7 +105,7 @@ export async function updateCalendarEvent(
       patch.summary = `${updates.service_name ?? ''} — ${updates.customer_name ?? 'Customer'}`.trim()
     }
 
-    await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
+    const res = await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -83,24 +113,52 @@ export async function updateCalendarEvent(
       },
       body: JSON.stringify(patch),
     })
-  } catch {
-    // silently fail — calendar sync is best-effort
+
+    if (!res.ok) {
+      const errBody = await res.text()
+      console.error('[GoogleCalendar] update non-ok:', res.status, errBody)
+      return
+    }
+
+    console.log('[GoogleCalendar] event updated:', eventId)
+  } catch (err) {
+    console.error('[GoogleCalendar] updateCalendarEvent threw:', err)
   }
 }
 
 export async function deleteCalendarEvent(eventId: string, bot: Bot): Promise<void> {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) return
-  if (!bot.google_access_token) return
+  console.log('[GoogleCalendar] deleteCalendarEvent START eventId=', eventId, 'botId=', bot.id)
+
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn('[GoogleCalendar] SKIP delete — GOOGLE env vars missing')
+    return
+  }
+  if (!bot.google_access_token) {
+    console.warn('[GoogleCalendar] SKIP delete — no google_access_token on bot', bot.id)
+    return
+  }
 
   try {
     const token = await getValidAccessToken(bot)
-    if (!token) return
+    if (!token) {
+      console.error('[GoogleCalendar] SKIP delete — getValidAccessToken returned null for bot', bot.id)
+      return
+    }
 
-    await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
+    const res = await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
-  } catch {
-    // silently fail
+
+    if (!res.ok && res.status !== 410) {
+      // 410 Gone = already deleted, treat as success
+      const errBody = await res.text()
+      console.error('[GoogleCalendar] delete non-ok:', res.status, errBody)
+      return
+    }
+
+    console.log('[GoogleCalendar] event deleted:', eventId)
+  } catch (err) {
+    console.error('[GoogleCalendar] deleteCalendarEvent threw:', err)
   }
 }
