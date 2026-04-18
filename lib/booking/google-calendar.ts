@@ -1,5 +1,6 @@
 // lib/booking/google-calendar.ts — Google Calendar sync for booking events
 
+import { getValidAccessToken } from '@/lib/booking/token-manager'
 import type { Booking, Bot } from '@/types/database'
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
@@ -12,7 +13,7 @@ export async function createCalendarEvent(
   if (!bot.google_access_token) return null
 
   try {
-    const token = await getValidToken(bot)
+    const token = await getValidAccessToken(bot)
     if (!token) return null
 
     const endTime =
@@ -59,7 +60,7 @@ export async function updateCalendarEvent(
   if (!bot.google_access_token) return
 
   try {
-    const token = await getValidToken(bot)
+    const token = await getValidAccessToken(bot)
     if (!token) return
 
     const patch: Record<string, unknown> = {}
@@ -92,7 +93,7 @@ export async function deleteCalendarEvent(eventId: string, bot: Bot): Promise<vo
   if (!bot.google_access_token) return
 
   try {
-    const token = await getValidToken(bot)
+    const token = await getValidAccessToken(bot)
     if (!token) return
 
     await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
@@ -101,44 +102,5 @@ export async function deleteCalendarEvent(eventId: string, bot: Bot): Promise<vo
     })
   } catch {
     // silently fail
-  }
-}
-
-// ─── Token management ─────────────────────────────────────────────────────────
-
-async function getValidToken(bot: Bot): Promise<string | null> {
-  if (!bot.google_access_token) return null
-
-  // If expiry is more than 60s away, token is still valid
-  if (bot.google_token_expiry) {
-    const expiry = new Date(bot.google_token_expiry)
-    if (expiry.getTime() > Date.now() + 60_000) {
-      return bot.google_access_token
-    }
-  } else {
-    // No expiry stored — assume valid
-    return bot.google_access_token
-  }
-
-  // Token expired — refresh
-  if (!bot.google_refresh_token) return null
-
-  try {
-    const res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        refresh_token: bot.google_refresh_token,
-        grant_type: 'refresh_token',
-      }),
-    })
-
-    if (!res.ok) return null
-    const data = (await res.json()) as { access_token?: string }
-    return data.access_token ?? null
-  } catch {
-    return null
   }
 }
