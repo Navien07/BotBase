@@ -8,7 +8,7 @@
 //   5. Fetch active media, generate signed URLs, dispatch via channel.
 
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendMessage, sendPhoto } from '@/lib/channels/dispatcher'
+import { sendMessage, sendMediaGroup } from '@/lib/channels/dispatcher'
 import type { PostStreamContext } from '@/lib/tenants'
 import { detectTrigger } from './detect'
 import { DR_AIMAN_BOT_ID } from './config'
@@ -50,23 +50,29 @@ export async function handlePostStream(ctx: PostStreamContext): Promise<void> {
 
   if (!media || media.length === 0) return
 
-  // Bridge message before images — fire-and-forget, don't block image send on failure
+  // Generate all signed URLs in parallel
+  const signedResults = await Promise.all(
+    media.map(async (item) => {
+      const { data: signed } = await supabase
+        .storage.from('bot-files').createSignedUrl(item.storage_path, 3600)
+      if (!signed?.signedUrl) {
+        console.error('[dr-aiman/dispatch] signed URL failed for item', item.id)
+        return null
+      }
+      return { url: signed.signedUrl, caption: item.caption ?? undefined }
+    })
+  )
+
+  const items = signedResults.filter((r) => r !== null) as Array<{ url: string; caption?: string }>
+  if (items.length === 0) return
+
+  // Bridge message — fire-and-forget, don't block media send on failure
   sendMessage(
     contactId,
-    'Sekejap encik, saya share testimonial dari patient lain dulu ya 🙏',
+    'Ni dia testimoni patient saya, encik tengok ya 👇',
     ctx.botId
   ).catch((err) => console.error('[dr-aiman/dispatch] bridge message failed:', err))
 
-  for (const item of media) {
-    const { data: signed } = await supabase
-      .storage.from('bot-files').createSignedUrl(item.storage_path, 3600)
-
-    if (!signed?.signedUrl) {
-      console.error('[dr-aiman/dispatch] signed URL failed for item', item.id)
-      continue
-    }
-
-    const ok = await sendPhoto(contactId, signed.signedUrl, item.caption ?? '', ctx.botId)
-    if (!ok) console.error('[dr-aiman/dispatch] sendPhoto failed for item', item.id)
-  }
+  const ok = await sendMediaGroup(contactId, items, ctx.botId)
+  if (!ok) console.error('[dr-aiman/dispatch] sendMediaGroup failed')
 }

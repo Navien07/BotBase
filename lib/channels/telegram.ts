@@ -282,6 +282,35 @@ export async function sendPhoto(
   }
 }
 
+export async function sendMediaGroup(
+  chatId: number,
+  items: Array<{ url: string; caption?: string }>,
+  botToken: string
+): Promise<boolean> {
+  try {
+    const media = items.map((item) => ({
+      type: 'photo' as const,
+      media: item.url,
+      ...(item.caption ? { caption: item.caption } : {}),
+    }))
+    const res = await fetch(
+      `https://api.telegram.org/bot${botToken}/sendMediaGroup`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, media }),
+      }
+    )
+    if (!res.ok) {
+      console.error('[telegram] sendMediaGroup error:', res.status, await res.text())
+    }
+    return res.ok
+  } catch (error) {
+    console.error('[telegram] sendMediaGroup error:', error)
+    return false
+  }
+}
+
 export async function setupWebhook(
   botToken: string,
   webhookUrl: string,
