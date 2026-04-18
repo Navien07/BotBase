@@ -1,7 +1,7 @@
 import { anthropic } from '@/lib/anthropic'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 
 export const maxDuration = 30
 
@@ -21,6 +21,9 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
+
   let body: unknown
   try {
     body = await req.json()
@@ -36,28 +39,6 @@ export async function POST(
   const { industry } = parsed.data
 
   try {
-    // Verify bot belongs to user's tenant
-    const serviceClient = createServiceClient()
-
-    const { data: profile } = await serviceClient
-      .from('profiles')
-      .select('tenant_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.tenant_id) {
-      return Response.json({ error: 'No tenant found' }, { status: 400 })
-    }
-
-    const { data: bot } = await serviceClient
-      .from('bots')
-      .select('id')
-      .eq('id', botId)
-      .eq('tenant_id', profile.tenant_id)
-      .single()
-
-    if (!bot) return Response.json({ error: 'Bot not found' }, { status: 404 })
-
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {

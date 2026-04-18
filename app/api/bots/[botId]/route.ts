@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 
 // ─── PATCH: partial update of bot fields ──────────────────────────────────────
 
@@ -26,6 +27,9 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const accessCheck = await requireBotAccess(user.id, botId, { userEmail: user.email })
+  if (accessCheck instanceof Response) return accessCheck
+
   let body: unknown
   try {
     body = await req.json()
@@ -45,29 +49,10 @@ export async function PATCH(
   try {
     const serviceClient = createServiceClient()
 
-    const { data: profile } = await serviceClient
-      .from('profiles')
-      .select('tenant_id, role')
-      .eq('id', user.id)
-      .single()
-
-    const isSuperAdmin = profile?.role === 'super_admin'
-
-    // Super admins can update any bot; tenant users are scoped to their tenant
-    if (!isSuperAdmin && !profile?.tenant_id) {
-      return Response.json({ error: 'No tenant found' }, { status: 400 })
-    }
-
-    let query = serviceClient
+    const { data: bot, error } = await serviceClient
       .from('bots')
       .update({ ...parsed.data, updated_at: new Date().toISOString() })
       .eq('id', botId)
-
-    if (!isSuperAdmin) {
-      query = query.eq('tenant_id', profile!.tenant_id!)
-    }
-
-    const { data: bot, error } = await query
       .select('id, name, is_active, updated_at')
       .single()
 

@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 
 const PicContactsSchema = z.object({
   okr:    z.union([z.literal(''), z.string().regex(/^\+[0-9]{10,15}$/, 'Must be international format e.g. +60122208396')]),
@@ -20,6 +21,9 @@ export async function GET(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
 
   try {
     const { data, error } = await createServiceClient()
@@ -53,6 +57,9 @@ export async function PATCH(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
 
   let body: unknown
   try {

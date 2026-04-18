@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 
 // ─── GET: return personality fields ───────────────────────────────────────────
 
@@ -13,6 +14,9 @@ export async function GET(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
 
   try {
     const { data, error } = await createServiceClient()
@@ -68,6 +72,9 @@ export async function PUT(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
 
   try {
     const body = await req.json()

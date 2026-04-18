@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { runPipeline } from '@/lib/pipeline'
 import { isTenantBot } from '@/lib/tenants'
@@ -34,6 +35,9 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
+
   // Rate limit by user ID
   const rateLimitResult = await rateLimit(user.id, RATE_LIMITS.dashboard)
   if (!rateLimitResult.allowed) {
@@ -56,7 +60,7 @@ export async function POST(
     const { message, sessionId } = parsed.data
     const service = createServiceClient()
 
-    // Fetch bot config — verify it exists
+    // Fetch bot config — ownership already verified by requireBotAccess
     const { data: bot, error: botError } = await service
       .from('bots')
       .select('*')

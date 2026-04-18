@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 import { createCalendarEvent } from '@/lib/booking/google-calendar'
 import { sendBookingConfirmation } from '@/lib/booking/notifications'
 import type { Booking, Bot } from '@/types/database'
@@ -44,6 +45,9 @@ export async function GET(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
 
   try {
     const url = new URL(req.url)
@@ -92,6 +96,9 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const accessCheck = await requireBotAccess(user.id, botId)
+  if (accessCheck instanceof Response) return accessCheck
 
   try {
     const body = await req.json() as unknown
