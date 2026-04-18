@@ -14,7 +14,7 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const accessCheck = await requireBotAccess(user.id, botId)
+  const accessCheck = await requireBotAccess(user.id, botId, { userEmail: user.email })
   if (accessCheck instanceof Response) return accessCheck
 
   try {
