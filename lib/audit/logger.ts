@@ -19,6 +19,9 @@ export type AuditAction =
   | 'tenant_suspended'
   | 'invite_created'
   | 'invite_accepted'
+  | 'media_trigger_uploaded'
+  | 'media_trigger_edited'
+  | 'media_trigger_deleted'
 
 export interface AuditLogParams {
   action: AuditAction

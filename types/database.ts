@@ -534,6 +534,21 @@ export interface OnboardingProgress {
   updated_at: string
 }
 
+export interface BotMediaTrigger {
+  id: string
+  bot_id: string
+  trigger_value: string
+  storage_path: string
+  mime_type: string
+  file_size_bytes: number
+  caption: string | null
+  display_order: number
+  is_active: boolean
+  uploaded_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AuditLog {
   id: string
   action: string
