@@ -1,5 +1,6 @@
 // app/api/bookings/[botId]/[id]/confirm/route.ts — Confirm a booking
 
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireBotAccess } from '@/lib/auth/require-bot-access'
@@ -56,8 +57,10 @@ export async function POST(
 
     if (error) throw error
 
-    // Fire-and-forget: calendar + notification
-    void (async () => {
+    // Post-response: calendar sync + notifications.
+    // after() keeps the function alive until the callback settles — safe in serverless.
+    after(async () => {
+      console.log('[GoogleCalendar:after] post-confirm sync starting bookingId=', booking.id, 'botId=', botId)
       try {
         const { data: bot } = await serviceClient
           .from('bots')
@@ -79,7 +82,7 @@ export async function POST(
       } catch (e) {
         console.error('[booking confirm] side effects', e)
       }
-    })()
+    })
 
     return Response.json({ booking })
   } catch (error) {

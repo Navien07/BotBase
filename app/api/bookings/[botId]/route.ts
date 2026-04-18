@@ -1,6 +1,7 @@
 // app/api/bookings/[botId]/route.ts — List and create bookings
 
 import { z } from 'zod'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireBotAccess } from '@/lib/auth/require-bot-access'
@@ -140,8 +141,10 @@ export async function POST(
 
     if (error) throw error
 
-    // Fire-and-forget: calendar + confirmation
-    void (async () => {
+    // Post-response: calendar sync + confirmation.
+    // after() keeps the function alive until the callback settles — safe in serverless.
+    after(async () => {
+      console.log('[GoogleCalendar:after] post-create sync starting bookingId=', booking.id, 'botId=', botId)
       try {
         const { data: bot } = await serviceClient
           .from('bots')
@@ -155,7 +158,7 @@ export async function POST(
       } catch (e) {
         console.error('[bookings POST] side effects', e)
       }
-    })()
+    })
 
     return Response.json({ booking }, { status: 201 })
   } catch (error) {

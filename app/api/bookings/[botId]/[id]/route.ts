@@ -1,6 +1,7 @@
 // app/api/bookings/[botId]/[id]/route.ts — Single booking get + update
 
 import { z } from 'zod'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireBotAccess } from '@/lib/auth/require-bot-access'
@@ -122,9 +123,11 @@ export async function PATCH(
 
     if (error) throw error
 
-    // Side effects on status change
+    // Post-response: calendar sync on status change.
+    // after() keeps the function alive until the callback settles — safe in serverless.
     if (updates.status) {
-      void (async () => {
+      after(async () => {
+        console.log('[GoogleCalendar:after] post-patch sync starting bookingId=', id, 'botId=', botId, 'status=', updates.status)
         try {
           const { data: bot } = await serviceClient
             .from('bots')
@@ -150,7 +153,7 @@ export async function PATCH(
         } catch (e) {
           console.error('[booking PATCH] side effects', e)
         }
-      })()
+      })
     }
 
     return Response.json({ booking })

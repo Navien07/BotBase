@@ -1,6 +1,7 @@
 // app/api/bookings/[botId]/[id]/cancel/route.ts — Cancel a booking
 
 import { z } from 'zod'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireBotAccess } from '@/lib/auth/require-bot-access'
@@ -65,9 +66,11 @@ export async function POST(
 
     if (error) throw error
 
-    // Fire-and-forget: delete calendar event
+    // Post-response: delete calendar event if one exists.
+    // after() keeps the function alive until the callback settles — safe in serverless.
     if (current.google_event_id) {
-      void (async () => {
+      after(async () => {
+        console.log('[GoogleCalendar:after] post-cancel delete starting bookingId=', id, 'botId=', botId)
         try {
           const { data: bot } = await serviceClient
             .from('bots')
@@ -80,7 +83,7 @@ export async function POST(
         } catch (e) {
           console.error('[booking cancel] calendar delete', e)
         }
-      })()
+      })
     }
 
     return Response.json({ booking })
