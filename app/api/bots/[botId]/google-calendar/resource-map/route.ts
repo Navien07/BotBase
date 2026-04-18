@@ -51,7 +51,7 @@ const VALID_RESOURCE_KEYS = z.enum([
 ])
 
 const PutBody = z.object({
-  mapping: z.record(VALID_RESOURCE_KEYS, z.string().min(1)),
+  mapping: z.partialRecord(VALID_RESOURCE_KEYS, z.string().min(1)),
 })
 
 export async function PUT(
