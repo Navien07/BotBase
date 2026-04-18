@@ -8,7 +8,7 @@
 //   5. Fetch active media, generate signed URLs, dispatch via channel.
 
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendPhoto } from '@/lib/channels/dispatcher'
+import { sendMessage, sendPhoto } from '@/lib/channels/dispatcher'
 import type { PostStreamContext } from '@/lib/tenants'
 import { detectTrigger } from './detect'
 import { DR_AIMAN_BOT_ID } from './config'
@@ -49,6 +49,13 @@ export async function handlePostStream(ctx: PostStreamContext): Promise<void> {
     .order('display_order', { ascending: true })
 
   if (!media || media.length === 0) return
+
+  // Bridge message before images — fire-and-forget, don't block image send on failure
+  sendMessage(
+    contactId,
+    'Sekejap encik, saya share testimonial dari patient lain dulu ya 🙏',
+    ctx.botId
+  ).catch((err) => console.error('[dr-aiman/dispatch] bridge message failed:', err))
 
   for (const item of media) {
     const { data: signed } = await supabase
