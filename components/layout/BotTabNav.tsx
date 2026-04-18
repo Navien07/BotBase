@@ -19,16 +19,28 @@ const BOT_TABS = [
   { label: 'Widget', path: '/widget' },
 ]
 
-export function BotTabNav({ botId }: { botId: string }) {
+interface Tab {
+  label: string
+  path: string
+}
+
+export function BotTabNav({
+  botId,
+  extraTabs = [],
+}: {
+  botId: string
+  extraTabs?: Tab[]
+}) {
   const pathname = usePathname()
   const base = `/dashboard/bots/${botId}`
+  const allTabs = [...BOT_TABS, ...extraTabs]
 
   return (
     <div
       className="flex items-center gap-0 mb-5 overflow-x-auto"
       style={{ borderBottom: '1px solid var(--bb-border)' }}
     >
-      {BOT_TABS.map((tab) => {
+      {allTabs.map((tab) => {
         const href = `${base}${tab.path}`
         const isActive = pathname === href || pathname.startsWith(href + '/')
         return (

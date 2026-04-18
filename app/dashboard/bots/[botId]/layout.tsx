@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { BotTabNav } from '@/components/layout/BotTabNav'
 import { BotStatusToggle } from '@/components/layout/BotStatusToggle'
+import { DR_AIMAN_BOT_ID } from '@/lib/tenants/dr-aiman/media-triggers/config'
 import type { Bot } from '@/types/database'
 
 interface BotLayoutProps {
@@ -43,6 +44,11 @@ export default async function BotLayout({ children, params }: BotLayoutProps) {
     .eq('is_active', true)
 
   const activeChannels = (channels ?? []).map((c: { channel: string }) => c.channel)
+
+  const extraTabs =
+    botId === DR_AIMAN_BOT_ID
+      ? [{ label: 'Media Triggers', path: '/dr-aiman/media-triggers' }]
+      : []
 
   return (
     <div className="flex flex-col h-full max-w-7xl mx-auto">
@@ -90,7 +96,7 @@ export default async function BotLayout({ children, params }: BotLayoutProps) {
       </div>
 
       {/* Horizontal tab nav — client component for active state */}
-      <BotTabNav botId={botId} />
+      <BotTabNav botId={botId} extraTabs={extraTabs} />
 
       {/* Page content */}
       <div className="flex-1 min-h-0">
