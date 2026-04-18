@@ -155,6 +155,7 @@ export async function POST(
       const webhookOk = await setupWebhook(data.bot_token, webhookUrl, webhookSecret)
 
       const encryptedToken = await encrypt(data.bot_token)
+      const encryptedWebhookSecret = await encrypt(webhookSecret)
 
       const { error } = await serviceClient
         .from('channel_configs')
@@ -165,7 +166,8 @@ export async function POST(
           config: {
             bot_token: encryptedToken,
             bot_username: tgData.result.username,
-            webhook_secret: webhookSecret,
+            webhook_url: webhookUrl,
+            webhook_secret: encryptedWebhookSecret,
           },
         }, { onConflict: 'bot_id,channel' })
 
