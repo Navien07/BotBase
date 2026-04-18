@@ -318,7 +318,7 @@ const GUIDES: Record<string, PageGuide> = {
   },
   integrations: {
     title: 'Integrations',
-    summary: 'Connect BotBase to third-party tools: CRMs, calendars, payment gateways, and more.',
+    summary: 'Connect IceBot to third-party tools: CRMs, calendars, payment gateways, and more.',
     sections: [
       {
         heading: 'Available Integrations',
@@ -354,7 +354,7 @@ const GUIDES: Record<string, PageGuide> = {
   },
   'api-keys': {
     title: 'API Keys',
-    summary: 'Create and manage API keys to integrate BotBase into your own applications.',
+    summary: 'Create and manage API keys to integrate IceBot into your own applications.',
     sections: [
       {
         heading: 'Creating a Key',
@@ -513,7 +513,7 @@ export function HelpGuideDrawer({ isOpen, onClose, pathname }: HelpGuideDrawerPr
         >
           <p className="text-xs" style={{ color: 'var(--bb-text-3)' }}>
             Need more help? Contact support at{' '}
-            <span style={{ color: 'var(--bb-primary)' }}>support@botbase.ai</span>
+            <span style={{ color: 'var(--bb-primary)' }}>support@icebot.ai</span>
           </p>
         </div>
       </aside>

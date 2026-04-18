@@ -14,8 +14,19 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'BotBase — AI Agent Platform',
+  title: 'IceBot — AI Agent Platform',
   description: 'Deploy intelligent AI agents across WhatsApp, Telegram, and Web',
+  openGraph: {
+    title: 'IceBot — AI Agent Platform',
+    description: 'Deploy intelligent AI agents across WhatsApp, Telegram, and Web',
+    siteName: 'IceBot',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'IceBot — AI Agent Platform',
+    description: 'Deploy intelligent AI agents across WhatsApp, Telegram, and Web',
+  },
 }
 
 export default function RootLayout({

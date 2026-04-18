@@ -59,8 +59,8 @@ function ConnectChannelPageInner() {
   const searchParams = useSearchParams()
   const botId = searchParams.get('botId') ?? ''
 
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
-  const WIDGET_URL = process.env.NEXT_PUBLIC_WIDGET_URL ?? 'https://widget.botbase.ai'
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
+  const WIDGET_URL = process.env.NEXT_PUBLIC_WIDGET_URL ?? 'https://widget.icebot.ai'
 
   const [open, setOpen] = useState<ChannelType | null>(null)
 

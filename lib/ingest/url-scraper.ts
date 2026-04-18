@@ -13,7 +13,7 @@ export interface ScrapeResult {
 
 export async function scrapeUrl(url: string): Promise<ScrapeResult> {
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'BotBase-Scraper/1.0' },
+    headers: { 'User-Agent': 'IceBot-Scraper/1.0' },
     signal: AbortSignal.timeout(SCRAPE_TIMEOUT_MS),
   })
 

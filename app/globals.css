@@ -46,9 +46,9 @@
   --radius-2xl: calc(var(--radius) * 2.5);
 }
 
-/* BotBase dark design system — always dark, no light mode toggle */
+/* IceBot dark design system — always dark, no light mode toggle */
 :root {
-  /* shadcn token overrides → BotBase palette */
+  /* shadcn token overrides → IceBot palette */
   --background: oklch(0.06 0 0);         /* #080808 */
   --foreground: oklch(0.94 0 0);         /* #f0f0f0 */
   --card: oklch(0.09 0 0);               /* #101010 */
@@ -86,7 +86,7 @@
   --sidebar-border: oklch(0.14 0 0);
   --sidebar-ring: oklch(0.585 0.223 264.4);
 
-  /* BotBase semantic tokens (used directly as CSS vars in components) */
+  /* IceBot semantic tokens (used directly as CSS vars in components) */
   --bb-bg:             #080808;
   --bb-surface:        #101010;
   --bb-surface-2:      #161616;
@@ -105,7 +105,7 @@
   --bb-danger:         #ef4444;
 }
 
-/* No .dark class — BotBase is always dark */
+/* No .dark class — IceBot is always dark */
 @layer base {
   * {
     @apply border-border outline-ring/50;

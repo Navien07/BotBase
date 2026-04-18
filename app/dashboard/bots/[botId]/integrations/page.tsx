@@ -105,7 +105,7 @@ export default function IntegrationsPage() {
   const { botId } = useParams<{ botId: string }>()
   const [n8nTab, setN8nTab] = useState<'whatsapp' | 'telegram'>('whatsapp')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
   const chatEndpoint = `${appUrl}/api/chat/${botId}`
 
   const curlExample = `curl -X POST ${chatEndpoint} \\

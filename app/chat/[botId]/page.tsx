@@ -404,7 +404,7 @@ export default function ChatPage() {
         {config.showBranding && (
           <p className="text-center mt-2 text-xs" style={{ color: '#505050' }}>
             Powered by{' '}
-            <span style={{ color: '#a0a0a0' }}>BotBase</span>
+            <span style={{ color: '#a0a0a0' }}>IceBot</span>
           </p>
         )}
       </div>

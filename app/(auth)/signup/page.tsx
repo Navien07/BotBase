@@ -56,7 +56,7 @@ function SignupForm() {
             <Bot className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>
-            BotBase
+            IceBot
           </span>
         </div>
 
@@ -66,7 +66,7 @@ function SignupForm() {
             Create your account
           </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--bb-text-2)' }}>
-            You were invited to join BotBase
+            You were invited to join IceBot
           </p>
 
           <form onSubmit={handleSignup} className="space-y-3">

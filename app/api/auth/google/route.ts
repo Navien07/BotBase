@@ -6,7 +6,7 @@ import { encrypt } from '@/lib/crypto/tokens'
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const botId = searchParams.get('botId')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
 
   if (!botId) {
     return Response.json({ error: 'Missing botId' }, { status: 400 })

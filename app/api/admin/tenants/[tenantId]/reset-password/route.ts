@@ -91,11 +91,11 @@ export async function POST(
     const { error: emailError } = await resend.emails.send({
       from: 'Iceberg AI Solutions <noreply@icebergaisolutions.com>',
       to: email,
-      subject: 'Set your BotBase password',
+      subject: 'Set your IceBot password',
       html: `
-        <h2>Set Your BotBase Password</h2>
+        <h2>Set Your IceBot Password</h2>
         <p>Hi there,</p>
-        <p>Click the link below to set your password for your BotBase account:</p>
+        <p>Click the link below to set your password for your IceBot account:</p>
         <p><a href="${linkData.properties.action_link}">Set Password &amp; Access Dashboard</a></p>
         <p>This link expires in 24 hours.</p>
         <p>If you didn't request this, you can safely ignore this email.</p>

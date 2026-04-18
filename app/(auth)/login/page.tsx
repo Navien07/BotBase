@@ -89,7 +89,7 @@ export default function LoginPage() {
             <Bot className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>
-            BotBase
+            IceBot
           </span>
         </div>
 
@@ -100,7 +100,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="text-sm mb-6" style={{ color: 'var(--bb-text-2)' }}>
-            Access your BotBase dashboard
+            Access your IceBot dashboard
           </p>
 
           {magicSent ? (
@@ -220,7 +220,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs mt-4" style={{ color: 'var(--bb-text-3)' }}>
-          BotBase is invite-only. Contact your administrator.
+          IceBot is invite-only. Contact your administrator.
         </p>
       </div>
     </div>

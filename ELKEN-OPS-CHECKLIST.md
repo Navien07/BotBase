@@ -25,17 +25,17 @@ WHERE table_name = 'documents' AND column_name = 'brochure_url';
 
 n8n is **only needed for admin PIC notifications** (`dispatchAdminNotification`).
 All customer-facing notifications (reminders, surveys, brochures) are sent
-natively by BotBase's channel dispatcher — no n8n required.
+natively by IceBot's channel dispatcher — no n8n required.
 
 For the n8n outbound workflow, only one branch is needed:
 
-**Trigger:** Webhook (receives POST from BotBase)
+**Trigger:** Webhook (receives POST from IceBot)
 **Switch on** `type` field:
   `admin_notification` → WhatsApp TEXT to `{{ $json.targetNumber }}`
 
 The following branches are **NO LONGER NEEDED** in n8n:
-- ~~confirmation/reminder/survey~~ → handled natively by BotBase
-- ~~brochure~~ → handled natively by BotBase
+- ~~confirmation/reminder/survey~~ → handled natively by IceBot
+- ~~brochure~~ → handled natively by IceBot
 
 Set n8n webhook URL for admin notifications only:
 ```sql
@@ -121,17 +121,17 @@ node scripts/test-elken-telegram.mjs
 ## Quick verification commands
 ```bash
 # Migrations numbered correctly (27, 28, 29)
-ls botbase/supabase/migrations/ | grep elken
+ls icebot/supabase/migrations/ | grep elken
 
 # tsc clean
-cd botbase && npx tsc --noEmit; echo "Exit: $?"
+cd icebot && npx tsc --noEmit; echo "Exit: $?"
 
 # dispatch route exists
-ls botbase/app/api/notifications/dispatch/route.ts && echo "PASS: dispatch route exists"
+ls icebot/app/api/notifications/dispatch/route.ts && echo "PASS: dispatch route exists"
 
 # Grep key wiring points
-grep -r "dispatchAdminNotification" botbase/app/api/bookings/
-grep -r "dispatchBrochure" botbase/app/api/chat/
-grep -r "parseElkenFilename" botbase/app/api/ingest/
-grep "PIC Notifications" botbase/app/dashboard/bots/\[botId\]/booking/page.tsx
+grep -r "dispatchAdminNotification" icebot/app/api/bookings/
+grep -r "dispatchBrochure" icebot/app/api/chat/
+grep -r "parseElkenFilename" icebot/app/api/ingest/
+grep "PIC Notifications" icebot/app/dashboard/bots/\[botId\]/booking/page.tsx
 ```

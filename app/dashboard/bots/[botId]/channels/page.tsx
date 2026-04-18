@@ -185,7 +185,7 @@ function WhatsAppPanel({ botId, existing, onSaved, onClose }: {
   const [saving, setSaving] = useState(false)
   const [savedInfo, setSavedInfo] = useState<{ verify_token: string; webhook_url: string } | null>(null)
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()

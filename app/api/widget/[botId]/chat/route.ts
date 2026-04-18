@@ -14,7 +14,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-const ALLOWED_DEV_ORIGINS = ['localhost', '127.0.0.1', 'app.botbase.ai']
+const ALLOWED_DEV_ORIGINS = ['localhost', '127.0.0.1', 'app.icebot.ai']
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })

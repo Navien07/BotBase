@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   const stateParam = searchParams.get('state')
   const errorParam = searchParams.get('error')
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
 
   function errorRedirect(botId: string | null, reason: string) {
     if (botId) {

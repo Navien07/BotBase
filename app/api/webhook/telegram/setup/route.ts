@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Invalid Telegram bot token' }, { status: 400 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
     const webhookUrl = `${appUrl}/api/webhook/telegram?botId=${botId}`
     const webhookSecret = nanoid(32)
 

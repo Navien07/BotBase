@@ -169,11 +169,11 @@ export async function POST(req: Request) {
       const { error: emailError } = await resend.emails.send({
         from: 'Iceberg AI Solutions <noreply@icebergaisolutions.com>',
         to: adminEmail,
-        subject: "You've been invited to BotBase — Set your password",
+        subject: "You've been invited to IceBot — Set your password",
         html: `
-          <h2>You've been invited to BotBase</h2>
+          <h2>You've been invited to IceBot</h2>
           <p>Hi there,</p>
-          <p>You've been given access to a BotBase AI chatbot dashboard by <strong>Iceberg AI Solutions</strong>.</p>
+          <p>You've been given access to a IceBot AI chatbot dashboard by <strong>Iceberg AI Solutions</strong>.</p>
           <p>Click the link below to set your password and access your dashboard:</p>
           <p><a href="${linkData.properties.action_link}">Accept Invite &amp; Set Password</a></p>
           <p>This link expires in 24 hours.</p>

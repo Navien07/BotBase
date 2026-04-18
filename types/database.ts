@@ -1,4 +1,4 @@
-// BotBase database types — generated from schema in 00001_extensions_schema.sql
+// IceBot database types — generated from schema in 00001_extensions_schema.sql
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 

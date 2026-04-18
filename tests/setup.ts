@@ -7,5 +7,5 @@ process.env.VOYAGE_API_KEY = 'test-voyage-key'
 process.env.TOKEN_ENCRYPTION_KEY = 'a'.repeat(64) // 32-byte hex for tests
 process.env.CRON_SECRET = 'test-cron-secret'
 process.env.WEBHOOK_SECRET = 'test-webhook-secret'
-process.env.NEXT_PUBLIC_APP_URL = 'https://app.botbase.ai'
-process.env.NEXT_PUBLIC_WIDGET_URL = 'https://widget.botbase.ai'
+process.env.NEXT_PUBLIC_APP_URL = 'https://app.icebot.ai'
+process.env.NEXT_PUBLIC_WIDGET_URL = 'https://widget.icebot.ai'

@@ -96,7 +96,7 @@ export async function GET(
     const responseRate = userMessages > 0 ? Math.round((botMessages / userMessages) * 100) : 0
 
     // Build CSV string
-    let csv = `BotBase Analytics Export\r\n`
+    let csv = `IceBot Analytics Export\r\n`
     csv += `Period,${from},${to}\r\n`
     csv += `Generated,${new Date().toISOString()}\r\n`
 
@@ -158,7 +158,7 @@ export async function GET(
 
     const fromDate = from.split('T')[0]
     const toDate   = to.split('T')[0]
-    const filename = `botbase-analytics-${botId}-${fromDate}-${toDate}.csv`
+    const filename = `icebot-analytics-${botId}-${fromDate}-${toDate}.csv`
 
     return new Response(csv, {
       headers: {

@@ -59,11 +59,11 @@ export async function POST(req: Request) {
     if (resendKey) {
       const resend = new Resend(resendKey)
       await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL ?? 'noreply@botbase.ai',
+        from: process.env.RESEND_FROM_EMAIL ?? 'noreply@icebot.ai',
         to: email,
-        subject: 'You have been invited to BotBase',
+        subject: 'You have been invited to IceBot',
         html: `
-          <p>You have been invited to join BotBase as a <strong>${role}</strong>.</p>
+          <p>You have been invited to join IceBot as a <strong>${role}</strong>.</p>
           <p><a href="${inviteUrl}">Accept Invite</a></p>
           <p>This link expires in 7 days.</p>
         `,

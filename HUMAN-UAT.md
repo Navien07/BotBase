@@ -1,6 +1,6 @@
-# BotBase — Human UAT Guide
+# IceBot — Human UAT Guide
 
-**Test Environment:** https://botbase-sandy.vercel.app
+**Test Environment:** https://icebot-sandy.vercel.app
 **Super Admin credentials:** navien@icebergaisolutions.com / _(ask team for password)_
 **Date:** April 2026
 **Prepared by:** Iceberg AI Solutions
@@ -25,7 +25,7 @@
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
-| 1.1 | Navigate to `https://botbase-sandy.vercel.app` | Redirects to `/login` |
+| 1.1 | Navigate to `https://icebot-sandy.vercel.app` | Redirects to `/login` |
 | 1.2 | Enter super admin email + password, click **Sign In** | Redirects to `/dashboard/overview` |
 | 1.3 | While logged in, navigate directly to `/login` | Redirects to `/dashboard/overview` |
 | 1.4 | Click avatar dropdown (top-right) → **Sign Out** | Redirected to `/login`, session cleared |
@@ -163,7 +163,7 @@
 |------|--------|-----------------|
 | 12.1 | Navigate to `/chat/[botId]` in a browser | Full-page chat interface loads |
 | 12.2 | Type a message and press Enter | Bot responds in the chat |
-| 12.3 | Create a simple HTML file locally: `<script src="https://botbase-sandy.vercel.app/widget.js" data-bot-id="[botId]"></script>` | Open in browser; floating chat bubble appears in bottom-right corner |
+| 12.3 | Create a simple HTML file locally: `<script src="https://icebot-sandy.vercel.app/widget.js" data-bot-id="[botId]"></script>` | Open in browser; floating chat bubble appears in bottom-right corner |
 | 12.4 | Click the floating bubble | Chat drawer opens |
 | 12.5 | Send a message | Bot replies; messages appear in drawer |
 

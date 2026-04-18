@@ -282,7 +282,7 @@ export function Sidebar({ bots, role }: SidebarProps) {
               B
             </div>
             <span className="font-semibold text-sm tracking-tight" style={{ color: 'var(--bb-text-1)' }}>
-              BotBase
+              IceBot
             </span>
           </div>
         )}
@@ -347,7 +347,7 @@ export function Sidebar({ bots, role }: SidebarProps) {
                   B
                 </div>
                 <span className="font-semibold text-sm tracking-tight" style={{ color: 'var(--bb-text-1)' }}>
-                  BotBase
+                  IceBot
                 </span>
               </div>
               <button

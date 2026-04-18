@@ -133,7 +133,7 @@ export async function POST(
       return Response.json({
         success: true,
         verify_token: verifyToken,
-        webhook_url: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'}/api/webhook/whatsapp`,
+        webhook_url: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'}/api/webhook/whatsapp`,
       })
     }
 
@@ -150,7 +150,7 @@ export async function POST(
 
       // Generate webhook secret + auto-register before encrypting token
       const webhookSecret = nanoid(32)
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'
       const webhookUrl = `${appUrl}/api/webhook/telegram?botId=${botId}`
       const webhookOk = await setupWebhook(data.bot_token, webhookUrl, webhookSecret)
 

@@ -207,7 +207,7 @@ function LivePreview({ config, botName }: { config: WidgetConfig; botName: strin
           </div>
           {config.showBranding && (
             <p className="text-center mt-1 text-[9px]" style={{ color: '#505050' }}>
-              Powered by <span style={{ color: '#a0a0a0' }}>BotBase</span>
+              Powered by <span style={{ color: '#a0a0a0' }}>IceBot</span>
             </p>
           )}
         </div>
@@ -290,8 +290,8 @@ export default function WidgetConfigPage() {
     }
   }, [botId, config])
 
-  const scriptCode = `<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'}/widget-loader.js" data-bot-id="${botId}"></script>`
-  const iframeCode = `<iframe src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.botbase.ai'}/chat/${botId}" width="400" height="700" frameborder="0"></iframe>`
+  const scriptCode = `<script src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'}/widget-loader.js" data-bot-id="${botId}"></script>`
+  const iframeCode = `<iframe src="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.icebot.ai'}/chat/${botId}" width="400" height="700" frameborder="0"></iframe>`
 
   if (loading) {
     return (
@@ -405,9 +405,9 @@ export default function WidgetConfigPage() {
             {/* Show Branding */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium" style={{ color: '#f0f0f0' }}>Show BotBase Branding</p>
+                <p className="text-sm font-medium" style={{ color: '#f0f0f0' }}>Show IceBot Branding</p>
                 <p className="text-xs mt-0.5" style={{ color: '#505050' }}>
-                  Display "Powered by BotBase" in the widget footer
+                  Display "Powered by IceBot" in the widget footer
                 </p>
               </div>
               <button

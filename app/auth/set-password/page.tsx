@@ -99,7 +99,7 @@ export default function SetPasswordPage() {
       await fetch('/api/auth/setup-profile', { method: 'POST' }).catch(() => {})
     }
 
-    toast.success('Password set! Welcome to BotBase.')
+    toast.success('Password set! Welcome to IceBot.')
     window.location.href = '/dashboard/overview'
   }
 
@@ -111,7 +111,7 @@ export default function SetPasswordPage() {
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--bb-primary)' }}>
             <Bot className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>BotBase</span>
+          <span className="text-xl font-semibold" style={{ color: 'var(--bb-text-1)' }}>IceBot</span>
         </div>
 
         {/* Card */}
@@ -153,7 +153,7 @@ export default function SetPasswordPage() {
                 Set Your Password
               </h1>
               <p className="text-sm mb-6" style={{ color: 'var(--bb-text-2)' }}>
-                Choose a password for your BotBase account
+                Choose a password for your IceBot account
               </p>
 
               {email && (
