@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 
 // ─── Validation schema ─────────────────────────────────────────────────────────
 
@@ -34,27 +35,17 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const access = await requireBotAccess(user.id, botId, { userEmail: user.email })
+  if (access instanceof Response) return access
+
   try {
     const serviceClient = createServiceClient()
-
-    // Verify bot belongs to the current user's tenant before returning any data.
-    // google_connected_email is PII — only returned because the user has
-    // authenticated access to this bot.
-    const { data: profile } = await serviceClient
-      .from('profiles')
-      .select('tenant_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.tenant_id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
 
     const { data, error } = await serviceClient
       .from('bots')
       .select('id, name, slug, timezone, default_language, feature_flags, is_active, google_refresh_token, google_connected_email, created_at')
       .eq('id', botId)
-      .eq('tenant_id', profile.tenant_id)
+      .eq('tenant_id', access.tenantId)
       .single()
 
     if (error) throw error
@@ -85,6 +76,9 @@ export async function PUT(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const access = await requireBotAccess(user.id, botId, { userEmail: user.email })
+  if (access instanceof Response) return access
+
   try {
     const body = await req.json() as unknown
     const parsed = SettingsSchema.safeParse(body)
@@ -94,16 +88,11 @@ export async function PUT(
 
     const serviceClient = createServiceClient()
 
-    const { data: profile } = await serviceClient
-      .from('profiles').select('tenant_id').eq('id', user.id).single()
-    if (!profile?.tenant_id)
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-
     const { error } = await serviceClient
       .from('bots')
       .update({ ...parsed.data, updated_at: new Date().toISOString() })
       .eq('id', botId)
-      .eq('tenant_id', profile.tenant_id)
+      .eq('tenant_id', access.tenantId)
 
     if (error) throw error
 
@@ -129,16 +118,14 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const access = await requireBotAccess(user.id, botId, { userEmail: user.email })
+  if (access instanceof Response) return access
+
   try {
     const serviceClient = createServiceClient()
 
-    const { data: profile } = await serviceClient
-      .from('profiles').select('tenant_id').eq('id', user.id).single()
-    if (!profile?.tenant_id)
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-
     const { data: ownedBot } = await serviceClient
-      .from('bots').select('id').eq('id', botId).eq('tenant_id', profile.tenant_id).single()
+      .from('bots').select('id').eq('id', botId).eq('tenant_id', access.tenantId).single()
     if (!ownedBot)
       return Response.json({ error: 'Bot not found' }, { status: 404 })
 
@@ -146,7 +133,7 @@ export async function DELETE(
       .from('bots')
       .delete()
       .eq('id', botId)
-      .eq('tenant_id', profile.tenant_id)
+      .eq('tenant_id', access.tenantId)
 
     if (error) throw error
 

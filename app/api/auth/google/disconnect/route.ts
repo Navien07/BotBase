@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { decrypt } from '@/lib/crypto/tokens'
+import { requireBotAccess } from '@/lib/auth/require-bot-access'
 
 const BodySchema = z.object({ botId: z.string().uuid() })
 
@@ -20,24 +21,16 @@ export async function POST(req: Request) {
     }
     const { botId } = parsed.data
 
-    // Verify the bot exists and belongs to the current user's tenant
+    const access = await requireBotAccess(user.id, botId, { userEmail: user.email })
+    if (access instanceof Response) return access
+
     const serviceClient = createServiceClient()
-
-    const { data: profile } = await serviceClient
-      .from('profiles')
-      .select('tenant_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.tenant_id) {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 })
-    }
 
     const { data: bot } = await serviceClient
       .from('bots')
       .select('id, google_access_token')
       .eq('id', botId)
-      .eq('tenant_id', profile.tenant_id)
+      .eq('tenant_id', access.tenantId)
       .single()
 
     if (!bot) {
@@ -70,6 +63,7 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', botId)
+      .eq('tenant_id', access.tenantId)
 
     if (error) throw error
 
